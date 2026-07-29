@@ -80,6 +80,7 @@
 | `GET`  | `/api/books/{isbn}` | 单书详情 + 全举报聚合 |
 | `POST` | `/api/reports` | 提交举报（含 multipart 文件） |
 | `POST` | `/api/reports/{id}/vote` | 点赞/点踩（IP + 指纹） |
+| `GET`  | `/api/feed/reports.rss` | RSS 2.0 订阅最新 20 条举报 |
 
 ### 2.4 PostgreSQL FTS 设计
 
@@ -87,6 +88,26 @@
 - `reports.description` → 同步至 `reports.tsv_desc`
 - 搜索时用 `to_tsquery('simple', $1)` 命中两个 tsvector 并 `union`
 - 中文分词先用 PG 内置 `simple` 字典（按字符切）；后续按需升级 `zhparser`
+
+### 2.5 RSS 订阅设计
+
+- **端点**：`GET /api/feed/reports.rss`，`Content-Type: application/rss+xml; charset=utf-8`
+- **条数**：最新 20 条（与首页一致）
+- **排序**：`reports.created_at DESC`
+- **关联**：每条 item 链接到该书详情页 `/books/{isbn}`，并附原举报描述作 `<description>`
+- **库**：`feedgen`（mature、零模板依赖，输出 RSS 2.0 / Atom 双格式）
+- **缓存**：MVP 不缓存，每次请求实时生成；后续可加 `Cache-Control: max-age=300`
+- **Nginx**：`location = /api/feed/reports.rss { add_header Content-Type "application/rss+xml; charset=utf-8"; }` 兜底 MIME
+
+**item 字段映射：**
+
+| RSS 字段 | 数据源 |
+|---|---|
+| `<title>` | `[{isbn}] {title} — {author}` |
+| `<link>` | `https://{host}/books/{isbn}` |
+| `<guid>` | `report-{id}`（保证全局唯一） |
+| `<pubDate>` | `reports.created_at`（RFC822） |
+| `<description>` | `reports.description`（CDATA 包裹防转义） |
 
 ---
 
@@ -239,6 +260,7 @@ dependencies = [
     "asyncpg>=0.30",
     "alembic>=1.14",
     "pydantic>=2.9",
+    "feedgen>=1.0",
 ]
 
 [dependency-groups]
@@ -260,7 +282,8 @@ aigbooks/
 │   │   ├── routers/
 │   │   │   ├── books.py
 │   │   │   ├── reports.py
-│   │   │   └── search.py
+│   │   │   ├── search.py
+│   │   │   └── feed.py            # RSS 订阅
 │   │   ├── middleware/
 │   │   │   ├── rate_limit.py
 │   │   │   └── exception.py
@@ -297,6 +320,7 @@ aigbooks/
 | 投票防刷 | IP + 浏览器指纹 | 完全不防 | 用户明确选择 B（指纹） |
 | 举报限流 | 每 (IP+指纹) 每小时 5 条 | 无限制 | 防止恶意刷库 |
 | UI 库 | Naive UI | Element Plus | TS 原生、bundle 更小 |
+| RSS 订阅 | `feedgen` 输出 RSS 2.0（20 条） | 手写 XML | 库成熟，零模板依赖 |
 
 ---
 
@@ -306,6 +330,5 @@ aigbooks/
 - 举报趋势统计 / 排行榜
 - R2 / S3 对象存储迁移
 - Cloudflare Turnstile 验证码
-- RSS 订阅最新举报
 - PWA 离线缓存
 - 多语言支持
