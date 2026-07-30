@@ -149,3 +149,173 @@ AI 生成劣质书籍泛滥，读者缺乏甄别渠道。AIGBooks 通过自由�
 **systemd 服务文件（/etc/systemd/system/aigbooks-api.service）：** [Unit] Description=AIGBooks API, After=network.target postgresql.service。[Service] Type=simple, User=www-data, WorkingDirectory=/opt/aigbooks/backend, Environment=AIGBOOKS_DATABASE_URL=postgresql+asyncpg://aigbooks:aigbooks@localhost:5432/aigbooks, ExecStart=/home/micray/.local/bin/uv run uvicorn app.main:app --host 0.0.0.0 --port 8000, Restart=on-failure。[Install] WantedBy=multi-user.target
 
 **nginx 配置片段：** server { listen 80; server_name aigbooks.example.com; client_max_body_size 20M; location /api/ { proxy_pass http://127.0.0.1:8000/api/; } location /evidence/ { alias /var/lib/aigbooks/evidence/; } location /covers/ { alias /var/lib/aigbooks/covers/; } location / { root /opt/aigbooks/frontend/dist; try_files  /index.html; } }
+
+
+---
+
+## 6. WEB UI 设计规格
+
+### 6.1 美学方向
+
+**Editorial 警告公报（Editorial Warning Dossier）**
+
+- 像一份"读者维护的质量监督档案"，反对 AI 公司惯用的甜系渐变、紫粉配色
+- 灵感：老牌杂志（纽约客、Granta）、图书馆卡片目录、档案馆卷宗
+- 关键隐喻："这是一份来自同行的警告，不是来自平台的告白"
+
+### 6.2 字体系统
+
+| 用途 | 英文字体 | 中文字体 | 备注 |
+|---|---|---|---|
+| Display（标题/Logo） | Fraunces (variable serif) | Noto Serif SC | opsz 24-144 可变，含 italic 风格 |
+| Body（正文/描述） | Newsreader | Noto Serif SC | 易读，可启用 old-style numerals |
+| Mono（ISBN/编号/标签） | JetBrains Mono | — | 务必用 mono 区分数值字段 |
+
+禁止字体：Inter、Roboto、Arial、system-ui、Space Grotesk、Helvetica
+
+**Fontsource 包安装（Vue 项目）：**
+```bash
+npm i @fontsource-variable/fraunces @fontsource/newsreader @fontsource/jetbrains-mono @fontsource/noto-serif-sc
+```
+
+### 6.3 颜色 Token（CSS Variables）
+
+```css
+:root {
+  --paper:          #f5f1e8;   /* 纸白主背景 */
+  --paper-dark:     #ebe4d2;   /* 章节卡片背景 */
+  --paper-shadow:   #d4c9b0;   /* 纹理/分隔 */
+  --ink:            #1a1a1a;   /* 墨黑主文字 */
+  --ink-soft:       #4a4538;   /* 次级文字 */
+  --ink-faint:      #8a8270;   /* 元数据 */
+  --rule:           #2a2520;   /* 报头分隔线 */
+  --stamp-red:      #b82b26;   /* 警告红印章 */
+  --stamp-red-deep: #8a1f1c;   /* 印章深色叠层 */
+  --accent-mustard: #b58a3a;   /* 罕见强调 */
+  --alert-bg:       #f3e5d8;   /* 警告引用底 */
+}
+```
+
+禁止渐变；禁止紫粉系；禁止过饱和颜色。
+
+### 6.4 空间与排版
+
+- 报头顶部 aging edge 8px 红色横条 → 警示意图
+- 全文最大宽 1400px，左右留白 6vw（报纸感）
+- 三栏网格 `repeat(3, 1fr)`，gap 48px 36px（列窄间距大）
+- 大量留白 + 单线 / 双线 / 虚线分隔
+- 不对称布局：featured 占 2 列跨幅 + reports 3 列
+
+### 6.5 关键组件
+
+| 组件 | 设计要点 |
+|---|---|
+| `<Masthead>` | 顶部三段栏（Vol × No × 日期）+ 居中巨型衬线 Logo（AIG + 斜体 books）+ 副标题 + nav |
+| `<ReportCard>` | 顶部 1px 实线 + 类别标签（mono 大写红）+ 标题（Fraunces 26px）+ ISBN（mono 11px）+ 摘要 + 底部虚线分隔 + 微型倾斜红印章显示举报次数 |
+| `<FeaturedReport>` | 1+1 双列布局，左侧 3:4 占位封面（45° 条纹纹理），右侧引用块（左侧红色边线、衬线斜体）+ 倾斜红印章 3-3-3 重叠边框 |
+| `<Stamp>` | 边框 3px 警告红，transform rotate(-2.5deg)，双层叠 (::before/::after) 不同透明度，营造盖章感 |
+| `<VoteButton>` | 等宽 "▲" "▼" 字符 + 当前票数，红绿反色（up=#b82b26 / down=#4a4538），按下时印章敲击反馈 |
+| `<SearchBox>` | 老式借阅卡片风格：顶部"LIBRARY CARD"标识 + 表格线字段 + mono ISBN 输入位 |
+| `<FileUploader>` | 拖拽区为纸张阴影背景 + 中央虚线方框 + 文件类型 mono 标签 |
+| `<FormField>` | 标签斜体衬线，无边框，横线分隔，输入区无圆角（打字机风） |
+
+### 6.6 动效
+
+- **Enter reveal (typeset)**：元素进入时透明度 0→1 + translateY 8px→0，stagger 0.05s/卡片（CSS animation-delay）
+- **Hover on links**：下划线 1px 警告红从无到有（transition）
+- **Stamp pulse**：投票成功后印章 scale(1)→scale(1.08)→scale(1) 200ms
+- **Submit on paper**：表单提交时整页变红边线 1px → 渐隐入详情页
+- 全部用 CSS transition / animation 实现，禁止引入 Motion 库
+
+### 6.7 背景与质感
+
+- 全局 SVG noise filter overlay（body::before），opacity 0.5，营造纸张纤维
+- 顶部 8px 红色渐变到透明 → 仿档案卷宗老化边缘
+- 章节背景 `var(--paper-dark)` 与全站 `var(--paper)` 对比分明
+- 不使用 blur、glassmorphism、neumorphism
+
+### 6.8 各页面布局
+
+**首页 `/` ：**
+- `<Masthead>` 全宽
+- `<Ledger>` 1400px
+  - Section "§ 01 — Latest Filings"
+  - `<FeaturedReport>` 头条 1 条（最新 1 条）
+  - `<ReportsGrid>` 3 列 × 6 行 = 18 条（剩余 19 条中前 18 条）
+  - 右下固定 `<Utility>`："RSS FEED" + "Submit a Report" 黑底红影按钮
+- `<Colophon>` 底部说明
+
+**书籍详情 `/books/:isbn`：**
+- 顶部 + nav 不变
+- 中部 1+1 布局：左侧固定书本元信息（封面占位 + 标题 + 作者 + ISBN + 红印章举报次数 + 投票控件）
+- 右侧时间倒序举报列表（每条 = 标题（描述前 50 字）+ 时间 + 证据缩略图 + 当前票数）
+- 底部 `<Colophon>`
+
+**搜索 `/search?q=`：**
+- 顶部 + nav 不变
+- 搜索框居中，老式借阅卡风格
+- 结果列表：与首页 cards 相同的 ReportCard，但显示搜索命中片段
+
+**举报 `/report`：**
+- 顶部 + nav 不变
+- 中央居中表单，宽度 720px
+- 章节分三段：
+  1. OCR（可选）：拖拽框 + Tesseract.js
+  2. 元数据：ISBN / 书名 / 作者 / 描述
+  3. 封面 + 证据
+- 提交按钮 = 巨型倾斜红印章风格 "FILE REPORT"
+
+### 6.9 Vue 3 实现要点
+
+- **Setup 框架**：Vite + Vue 3 + `<script setup lang="ts">`
+- **路由**：Vue Router 4
+- **状态**：Pinia（仅用于报告列表 / 详情缓存，不引入复杂 store）
+- **HTTP**：axios 单例，baseURL=/api，全局 429/500 拦截器（弹 Naive UI 提示，但样式以本报为主）
+- **CSS**：每个组件 scoped，自定义 token 通过 CSS variable 注入；不引入 Tailwind / UnoCSS / 任何原子化库
+- **样式命名**：BEM 风格 `.report__title`、`.featured__stamp`
+- **图片占位**：未提供封面时用 45° 条纹纹理 CSS 绘制，附 "NO COVER / NO RECORD" 字样
+- **字体加载**：`<link>` Google Fonts 引入，避免 FOIT
+
+### 6.10 现有工作预览
+
+完整 HTML / CSS 预览已落在 `/tmp/opencode/aigbooks-mockup/index.html`，包含首页骨架 + FeaturedReport + 6 张 ReportCard + 浮动工具栏 + Colophon。可直接浏览器打开验证视觉。
+
+正式实现时，把该预览拆解为：
+- `frontend/src/views/HomeView.vue` ← 预览的 `<main class="ledger">`
+- `frontend/src/components/Masthead.vue`
+- `frontend/src/components/ReportCard.vue`
+- `frontend/src/components/FeaturedReport.vue`
+- `frontend/src/components/Stamp.vue`
+- `frontend/src/components/VoteButton.vue`
+- `frontend/src/components/Colophon.vue`
+- `frontend/src/styles/dossier.css` ← 全部 token + 全局背景
+
+### 6.11 任务 5 拆分更新
+
+任务 5 页面实现内的实际代码工作量为：
+- 5.1 首页（0.5天，2 个新组件 Masthead + FeaturedReport + ReportCard）
+- 5.2 搜索页（0.5天，复用 ReportCard）
+- 5.3 书籍详情页（0.6天，复用 ReportCard + 新增 EvidenceList + VoteButton）
+- 5.4 举报表单（0.6天，新增 OCR 区 + ManuscriptForm 风格表单单）
+- 5.5 公共组件（0.3天，复用印章/卡片）
+
+### 6.12 验收标准（视觉角度）
+
+- [ ] 首页在 1280px 视口下三列等宽，论文风对齐
+- [ ] Logo "AIGbooks" 中 "books" 斜体红字生效
+- [ ] 报头分栏（Vol / Dossier 名 / 日期）三段可见
+- [ ] 印章至少出现在：featured 的"举报次数" + 至少 1 张 ReportCard
+- [ ] 投票按钮红绿反色生效，按下有放大反馈
+- [ ] 全局背景有纸张纤维纹理，顶部有红边老化线
+- [ ] 完全没有：圆角、阴影阴影渐变、紫粉配色、Inter/Roboto/Helvetica
+
+---
+
+## 7. 待确认
+
+请确认：
+1. 美学方向 = Editorial 警告公报 ✓?
+2. 字体三件套 = Fraunces + Newsreader + JetBrains Mono + Noto Serif SC ✓?
+3. 颜色 token（6.3）是否接受？
+4. 预览 HTML `/tmp/opencode/aigbooks-mockup/index.html` 视觉是否到位？需不需要调整哪部分？
+5. 任务 5 拆分是否要按 6.11 调整？
