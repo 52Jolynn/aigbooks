@@ -1,0 +1,36 @@
+[Unit]
+Description=AIGBooks FastAPI Backend
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/aigbooks/backend
+
+# 通过 environment.d 覆盖默认值（不要把密码写在这里）
+EnvironmentFile=-/etc/aigbooks/api.env
+
+ExecStart=/usr/local/bin/uv run uvicorn app.main:app \
+    --host 127.0.0.1 --port 8000 --workers 2
+
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+KillMode=mixed
+
+# 安全加固
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RuntimeDirectory=aigbooks
+RuntimeDirectoryMode=0750
+
+# 日志走 journal
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
