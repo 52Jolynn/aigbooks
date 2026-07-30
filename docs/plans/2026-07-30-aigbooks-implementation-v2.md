@@ -2,9 +2,25 @@
 
 ---
 创建时间: 2026-07-30 10:55
-状态: 待确认
+最后更新: 2026-07-30 18:10（实施完成）
+状态: 已完成 ✅
 版本: v2.0（基于设计文档 + UI mockup + 用户澄清决策重新生成）
 ---
+
+> **实施完成记录**：
+> - 8 个任务全部完成（必做 #0/8 + 任务 1-7）
+> - 代码已 commit：`3c15fbd feat: ship AIGBooks MVP (backend + frontend + deploy + tests)`
+> - 后端测试：22 passed, 6 skipped
+> - 前端测试：17 passed (8 files)
+> - 流程审查：3 项 P1 警告（已记录待后续优化）
+> - 三方对齐：4 项 P1 偏差（已修复）
+>
+> **遗留警告**（详见 `docs/reports/`）：
+> - 业务流程 P1-1：Book 聚合并发竞态（SELECT-then-INSERT/UPDATE）
+> - 业务流程 P1-2：封面 MIME 校验弱于证据（仅扩展名校验）
+> - 业务流程 P1-3：RecentReportsOut.total 语义歧义（返回 LIMIT 后条数）
+> - 流程审查报告：`docs/reports/20260730_业务流程审查.md`
+> - 三方对齐报告：`docs/reports/20260730_三方对齐评估.md`
 
 ## 0. 与 v1 的差异说明
 
