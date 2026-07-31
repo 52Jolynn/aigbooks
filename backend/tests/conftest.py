@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config import Settings, get_settings
 from app.database import Base, get_session
+from app.db.constants import DIALECT_POSTGRESQL, URL_SCHEME_SQLITE
 from app.db.dialect import parse_dialect
 from app.main import app
 from app.models import Book, Report
@@ -96,7 +97,7 @@ def _get_test_settings(db_url: str | None = None) -> Settings:
 
 
 def _is_sqlite_url(url: str) -> bool:
-    return url.startswith("sqlite")
+    return url.startswith(URL_SCHEME_SQLITE)
 
 
 def _has_relationship_defined() -> bool:
@@ -201,7 +202,7 @@ def require_dialect(test_dialect: str):
 @pytest.fixture
 def require_pg(require_dialect):
     """向后兼容：仅 PostgreSQL。"""
-    require_dialect("postgresql")
+    require_dialect(DIALECT_POSTGRESQL)
 
 
 @pytest.fixture

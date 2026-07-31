@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import get_settings
+from app.db.constants import DIALECT_SQLITE
 from app.db.dialect import current_dialect
 
 
@@ -24,7 +25,7 @@ _settings = get_settings()
 _dialect = current_dialect()
 
 _engine_kwargs: dict = {"echo": _settings.database_echo}
-if _dialect != "sqlite":
+if _dialect != DIALECT_SQLITE:
     _engine_kwargs["pool_pre_ping"] = True
 else:
     _engine_kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
@@ -42,7 +43,7 @@ def _set_sqlite_pragmas(dbapi_connection, _connection_record):  # noqa: ANN001
     cursor.close()
 
 
-if _dialect == "sqlite":
+if _dialect == DIALECT_SQLITE:
     event.listen(async_engine.sync_engine, "connect", _set_sqlite_pragmas)
 
 

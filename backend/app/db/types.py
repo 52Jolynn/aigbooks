@@ -8,6 +8,8 @@ from sqlalchemy import String, Text
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.types import TypeDecorator
 
+from app.db.constants import DIALECT_POSTGRESQL
+
 
 class TsVector(TypeDecorator):
     """全文检索向量。
@@ -20,7 +22,7 @@ class TsVector(TypeDecorator):
     cache_ok = True
 
     def load_dialect_impl(self, dialect):  # noqa: ANN001
-        if dialect.name == "postgresql":
+        if dialect.name == DIALECT_POSTGRESQL:
             return dialect.type_descriptor(TSVECTOR())
         return dialect.type_descriptor(Text())
 

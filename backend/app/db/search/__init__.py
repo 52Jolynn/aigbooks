@@ -5,6 +5,11 @@ from __future__ import annotations
 from typing import Protocol
 
 from app.db import dialect as _dialect_module
+from app.db.constants import (
+    DIALECT_MYSQL,
+    DIALECT_POSTGRESQL,
+    DIALECT_SQLITE,
+)
 from app.db.search.mysql import MysqlSearchBackend
 from app.db.search.postgres import PostgresSearchBackend
 from app.db.search.sqlite import SqliteSearchBackend
@@ -24,9 +29,9 @@ class SearchBackend(Protocol):
 
 
 _BACKENDS: dict[str, type[SearchBackend]] = {
-    "postgresql": PostgresSearchBackend,
-    "sqlite": SqliteSearchBackend,
-    "mysql": MysqlSearchBackend,
+    DIALECT_POSTGRESQL: PostgresSearchBackend,
+    DIALECT_SQLITE: SqliteSearchBackend,
+    DIALECT_MYSQL: MysqlSearchBackend,
 }
 
 _instance: SearchBackend | None = None

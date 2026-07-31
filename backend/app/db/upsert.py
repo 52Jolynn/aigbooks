@@ -7,16 +7,17 @@ from typing import Any
 from sqlalchemy import Insert
 from sqlalchemy.dialects import mysql, postgresql, sqlite
 
+from app.db.constants import DIALECT_MYSQL, DIALECT_POSTGRESQL, DIALECT_SQLITE
 from app.db.dialect import current_dialect
 
 
 def _dialect_insert():
     dialect = current_dialect()
-    if dialect == "postgresql":
+    if dialect == DIALECT_POSTGRESQL:
         return postgresql.insert
-    if dialect == "sqlite":
+    if dialect == DIALECT_SQLITE:
         return sqlite.insert
-    if dialect == "mysql":
+    if dialect == DIALECT_MYSQL:
         return mysql.insert
     raise ValueError(f"Unsupported dialect: {dialect}")
 
@@ -52,6 +53,6 @@ def make_upsert(
         update_set if update_set is not None else _default_update_set(rows, conflict_keys)
     )
 
-    if current_dialect() == "mysql":
+    if current_dialect() == DIALECT_MYSQL:
         return stmt.on_duplicate_key_update(effective_set)
     return stmt.on_conflict_do_update(index_elements=conflict_keys, set_=effective_set)

@@ -1,16 +1,15 @@
-"""数据库方言识别：基于 SQLAlchemy URL schema 返回标准方言名。"""
+"""数据库方言识别：基于 SQLAlchemy URL schema 返回标准方言名。
+
+方言名称与 URL scheme 常量化于 :mod:`app.db.constants`。
+"""
 
 from __future__ import annotations
 
-from typing import Literal
-
-DialectName = Literal["postgresql", "sqlite", "mysql"]
-
-_URL_TO_DIALECT: dict[str, DialectName] = {
-    "postgresql+asyncpg": "postgresql",
-    "sqlite+aiosqlite": "sqlite",
-    "mysql+asyncmy": "mysql",
-}
+from app.db.constants import (
+    SUPPORTED_URL_PREFIXES,
+    URL_SCHEME_TO_DIALECT,
+    DialectName,
+)
 
 
 def parse_dialect(url: str) -> DialectName:
@@ -20,11 +19,10 @@ def parse_dialect(url: str) -> DialectName:
         ValueError: URL scheme 不在受支持驱动列表中。
     """
     scheme = url.split("://", 1)[0]
-    dialect = _URL_TO_DIALECT.get(scheme)
+    dialect = URL_SCHEME_TO_DIALECT.get(scheme)
     if dialect is None:
-        supported = ", ".join(sorted(_URL_TO_DIALECT.keys()))
         raise ValueError(
-            f"Unsupported database driver: {scheme!r}. Supported drivers: {supported}"
+            f"Unsupported database driver: {scheme!r}. Supported drivers: {SUPPORTED_URL_PREFIXES}"
         )
     return dialect
 

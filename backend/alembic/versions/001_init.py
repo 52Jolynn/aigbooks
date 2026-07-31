@@ -23,6 +23,11 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
+from app.db.constants import (
+    DIALECT_MYSQL,
+    DIALECT_POSTGRESQL,
+    DIALECT_SQLITE,
+)
 
 revision: str = "001"
 down_revision: str | None = None
@@ -36,7 +41,7 @@ def upgrade() -> None:
 
     op.create_table(
         "books",
-        sa.Column("id", sa.BigInteger().with_variant(sa.Integer, "sqlite"), primary_key=True),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer, DIALECT_SQLITE), primary_key=True),
         sa.Column("isbn", sa.Text(), nullable=False),
         sa.Column("title", sa.Text(), nullable=False),
         sa.Column("author", sa.Text(), nullable=False),
@@ -67,10 +72,10 @@ def upgrade() -> None:
 
     op.create_table(
         "reports",
-        sa.Column("id", sa.BigInteger().with_variant(sa.Integer, "sqlite"), primary_key=True),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer, DIALECT_SQLITE), primary_key=True),
         sa.Column(
             "book_id",
-            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, DIALECT_SQLITE),
             sa.ForeignKey("books.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -102,10 +107,10 @@ def upgrade() -> None:
 
     op.create_table(
         "evidences",
-        sa.Column("id", sa.BigInteger().with_variant(sa.Integer, "sqlite"), primary_key=True),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer, DIALECT_SQLITE), primary_key=True),
         sa.Column(
             "report_id",
-            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, DIALECT_SQLITE),
             sa.ForeignKey("reports.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -124,10 +129,10 @@ def upgrade() -> None:
 
     op.create_table(
         "votes",
-        sa.Column("id", sa.BigInteger().with_variant(sa.Integer, "sqlite"), primary_key=True),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer, DIALECT_SQLITE), primary_key=True),
         sa.Column(
             "report_id",
-            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, DIALECT_SQLITE),
             sa.ForeignKey("reports.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -150,11 +155,11 @@ def upgrade() -> None:
         unique=False,
     )
 
-    if dialect == "postgresql":
+    if dialect == DIALECT_POSTGRESQL:
         _upgrade_postgres()
-    elif dialect == "sqlite":
+    elif dialect == DIALECT_SQLITE:
         _upgrade_sqlite()
-    elif dialect == "mysql":
+    elif dialect == DIALECT_MYSQL:
         _upgrade_mysql()
 
 
@@ -354,11 +359,11 @@ def downgrade() -> None:
     bind = op.get_bind()
     dialect = bind.dialect.name
 
-    if dialect == "postgresql":
+    if dialect == DIALECT_POSTGRESQL:
         _downgrade_postgres()
-    elif dialect == "sqlite":
+    elif dialect == DIALECT_SQLITE:
         _downgrade_sqlite()
-    elif dialect == "mysql":
+    elif dialect == DIALECT_MYSQL:
         _downgrade_mysql()
 
     op.drop_index("reports_rate_limit_idx", table_name="reports")

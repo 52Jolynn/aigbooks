@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app.config import get_settings
 from app.database import Base
+from app.db.constants import DIALECT_SQLITE
 
 config = context.config
 
@@ -39,7 +40,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    render_as_batch = connection.dialect.name == "sqlite"
+    render_as_batch = connection.dialect.name == DIALECT_SQLITE
     context.configure(
         connection=connection,
         target_metadata=target_metadata,

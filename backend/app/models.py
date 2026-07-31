@@ -33,6 +33,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.db.constants import DIALECT_SQLITE
 from app.db.types import TsVector
 from app.utils.tokenize import cut_for_search
 from app.utils.tokenize import warmup as warmup_jieba
@@ -55,7 +56,7 @@ class Book(Base):
 
     __tablename__ = "books"
 
-    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, DIALECT_SQLITE), primary_key=True)
     isbn: Mapped[str] = mapped_column(Text, unique=True, nullable=False, index=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     author: Mapped[str] = mapped_column(Text, nullable=False)
@@ -78,7 +79,7 @@ class Report(Base):
 
     __tablename__ = "reports"
 
-    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, DIALECT_SQLITE), primary_key=True)
     book_id: Mapped[int] = mapped_column(
         ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -102,7 +103,7 @@ class Evidence(Base):
 
     __tablename__ = "evidences"
 
-    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, DIALECT_SQLITE), primary_key=True)
     report_id: Mapped[int] = mapped_column(
         ForeignKey("reports.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -121,7 +122,7 @@ class Vote(Base):
     __tablename__ = "votes"
     __table_args__ = (UniqueConstraint("report_id", "ip", "fingerprint", name="uq_vote"),)
 
-    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, DIALECT_SQLITE), primary_key=True)
     report_id: Mapped[int] = mapped_column(
         ForeignKey("reports.id", ondelete="CASCADE"), nullable=False
     )
