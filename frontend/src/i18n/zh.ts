@@ -46,6 +46,19 @@ export const search = {
   prompt: '请输入关键词进行检索。',
   empty: (q: string) => `未找到与“${q}”相关的举报。`,
   cardLabel: '图书检索',
+  stationLabel: '检索台',
+  archiveLabel: '检索目录',
+  archiveCount: (count: number) => `共 ${count} 条`,
+  archiveEmpty: '馆藏目录暂无匹配条目',
+  field: {
+    label: '检索范围',
+    all: '全部',
+    isbn: 'ISBN',
+    title: '书名',
+    author: '作者',
+    description: '描述',
+  },
+  actionLabel: '检索',
   placeholder: '按书名、作者、ISBN 或举报描述搜索',
 } as const;
 

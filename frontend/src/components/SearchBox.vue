@@ -1,17 +1,25 @@
 <template>
   <div class="search-box">
     <label class="search-box__label" :for="inputId">{{ cardLabel }}</label>
-    <input
-      :id="inputId"
-      ref="inputEl"
-      v-model="localQ"
-      type="search"
-      class="search-box__input"
-      :placeholder="placeholder"
-      :aria-label="ariaLabel"
-      @keyup.enter="onSearch"
-      @input="onDebouncedSearch"
-    />
+    <div class="search-box__field">
+      <input
+        :id="inputId"
+        ref="inputEl"
+        v-model="localQ"
+        type="search"
+        class="search-box__input"
+        :placeholder="placeholder"
+        :aria-label="ariaLabel"
+        @keyup.enter="onSearch"
+        @input="onDebouncedSearch"
+      />
+      <button
+        type="button"
+        class="search-box__submit"
+        :aria-label="actionLabel"
+        @click="onSearch"
+      >{{ actionLabel }}</button>
+    </div>
   </div>
 </template>
 
@@ -33,6 +41,7 @@ const inputEl = ref<HTMLInputElement | null>(null);
 const inputId = `search-box-${Math.random().toString(36).slice(2, 8)}`;
 const cardLabel = i18n.cardLabel;
 const ariaLabel = i18n.ariaLabel;
+const actionLabel = searchI18n.actionLabel;
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -49,6 +58,7 @@ function onDebouncedSearch() {
 
 function onSearch() {
   if (timer) clearTimeout(timer);
+  emit('search', localQ.value);
   router.push({ name: 'search', query: { q: localQ.value } });
 }
 

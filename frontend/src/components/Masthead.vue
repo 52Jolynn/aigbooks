@@ -4,8 +4,19 @@
       <span class="masthead__case" :aria-label="`${masthead.caseLabel} ${caseNumber}`">
         {{ masthead.caseLabel }} · {{ caseNumber }}
       </span>
-      <span>{{ masthead.tagline }}</span>
-      <span>{{ today }}</span>
+      <div class="masthead__center">
+        <span class="masthead__tagline">{{ masthead.tagline }}</span>
+        <span class="masthead__date">{{ today }}</span>
+      </div>
+      <div class="masthead__actions">
+        <a
+          href="/api/feed/reports.rss"
+          class="masthead__rss"
+          target="_blank"
+          rel="noopener noreferrer"
+        >{{ nav.rss }}</a>
+        <RouterLink to="/report" class="masthead__cta">{{ nav.submit }}</RouterLink>
+      </div>
     </div>
     <div class="masthead__title">
       <h1 class="masthead__title-zh">{{ site.brand }}</h1>
