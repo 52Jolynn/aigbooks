@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 
 import magic
 from fastapi import HTTPException, UploadFile
@@ -18,9 +17,6 @@ _MIME_EXT_MAP = {
     "video/mp4": ".mp4",
 }
 
-_COVER_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
-_COVER_EXT_BY_NAME = {".jpg": ".jpg", ".jpeg": ".jpg", ".png": ".png", ".webp": ".webp"}
-
 _COVER_EXT_BY_MIME = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
@@ -29,18 +25,30 @@ _COVER_EXT_BY_MIME = {
 
 
 async def save_cover(file: UploadFile, isbn: str) -> str:
-    """保存封面到 covers/{isbn}.{ext}，返回相对路径。"""
+    """保存封面：先用 python-magic 嗅探真实 MIME，再校验白名单。"""
     settings = get_settings()
-    raw_ext = Path(file.filename or "").suffix.lower()
-    ext = _COVER_EXT_BY_NAME.get(raw_ext)
+
+    head = await file.read(2048)
+    await file.seek(0)
+
+    try:
+        mime = magic.from_buffer(head, mime=True)
+    except Exception as e:
+        raise HTTPException(
+            status_code=415,
+            detail={"code": 415, "msg": f"无法识别文件类型: {e}"},
+        ) from e
+
+    ext = _COVER_EXT_BY_MIME.get(mime)
     if not ext:
         raise HTTPException(
             status_code=415,
-            detail={"code": 415, "msg": "封面格式不支持，仅允许 jpg/png/webp"},
+            detail={"code": 415, "msg": f"封面格式不支持: {mime}"},
         )
 
     target = settings.covers_dir / f"{isbn}{ext}"
     target.parent.mkdir(parents=True, exist_ok=True)
+
     content = await file.read()
     if len(content) > settings.max_upload_size:
         raise HTTPException(status_code=413, detail={"code": 413, "msg": "封面文件过大"})

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -19,8 +19,9 @@ router = APIRouter()
 async def get_recent_reports(
     db: AsyncSession = Depends(get_session),
 ) -> RecentReportsOut:
-    """最新 N 条举报（按 created_at DESC）。"""
+    """最新 N 条举报 + DB 真实总数。total 字段语义：数据库中全部举报数量（不受 LIMIT 影响）。"""
     settings = get_settings()
+
     stmt = (
         select(Report)
         .options(
@@ -32,9 +33,12 @@ async def get_recent_reports(
     )
     result = await db.execute(stmt)
     reports = list(result.scalars().unique().all())
+
+    total = await db.scalar(select(func.count()).select_from(Report))
+
     return RecentReportsOut(
         reports=[ReportOut.model_validate(r) for r in reports],
-        total=len(reports),
+        total=total or 0,
     )
 
 

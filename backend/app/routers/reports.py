@@ -51,23 +51,33 @@ async def create_report(
     if cover is not None and cover.filename:
         cover_path = await save_cover(cover, isbn)
 
-    book_q = select(Book).where(Book.isbn == isbn)
-    existing = (await db.execute(book_q)).scalar_one_or_none()
-    if existing is not None:
-        if cover_path:
-            existing.cover_path = cover_path
-            existing.updated_at = func.now()
-        book_id = existing.id
-    else:
-        new_book = Book(
-            isbn=isbn,
-            title=title,
-            author=author,
-            cover_path=cover_path,
+    upsert_stmt = pg_insert(Book).values(
+        isbn=isbn,
+        title=title,
+        author=author,
+        cover_path=cover_path,
+    )
+    if cover_path is not None:
+        upsert_stmt = upsert_stmt.on_conflict_do_update(
+            index_elements=[Book.isbn],
+            set_={
+                "title": upsert_stmt.excluded.title,
+                "author": upsert_stmt.excluded.author,
+                "cover_path": upsert_stmt.excluded.cover_path,
+                "updated_at": func.now(),
+            },
         )
-        db.add(new_book)
-        await db.flush()
-        book_id = new_book.id
+    else:
+        upsert_stmt = upsert_stmt.on_conflict_do_update(
+            index_elements=[Book.isbn],
+            set_={
+                "title": upsert_stmt.excluded.title,
+                "author": upsert_stmt.excluded.author,
+                "updated_at": func.now(),
+            },
+        )
+    upsert_stmt = upsert_stmt.returning(Book.id)
+    book_id = (await db.execute(upsert_stmt)).scalar_one()
 
     new_report = Report(
         book_id=book_id,

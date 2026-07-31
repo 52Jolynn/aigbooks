@@ -20,9 +20,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    database_url: str = (
-        "postgresql+asyncpg://aigbooks:aigbooks@localhost:5432/aigbooks"
-    )
+    database_url: str = "postgresql+asyncpg://aigbooks:aigbooks@localhost:5432/aigbooks"
     evidence_dir: Path = Path("./var/evidence")
     covers_dir: Path = Path("./var/covers")
 
@@ -36,9 +34,7 @@ class Settings(BaseSettings):
 
     page_size: int = 20
 
-    cors_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:3000"]
-    )
+    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
 
 @lru_cache(maxsize=1)
