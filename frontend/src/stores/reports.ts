@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { getRecentReports, type ReportOut } from '@/api/books';
+import { consoleMessages } from '@/i18n/zh';
 
 export const useRecentStore = defineStore('recent', () => {
   const reports = ref<ReportOut[]>([]);
@@ -14,7 +15,7 @@ export const useRecentStore = defineStore('recent', () => {
       reports.value = data.reports;
       total.value = data.total;
     } catch (e) {
-      console.warn('Failed to load recent reports:', e);
+      console.warn(consoleMessages.recentFailed, e);
       total.value = 0;
     } finally {
       loading.value = false;

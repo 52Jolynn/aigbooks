@@ -11,18 +11,25 @@
       type="file"
       :multiple="multiple"
       :accept="accept"
-      style="display:none"
+      class="file-uploader__native"
       @change="onChange"
     />
-    <div class="file-uploader__inner" @click="inputEl?.click()">
-      <span class="file-uploader__label">{{ label }}</span>
-      <span class="file-uploader__hint">{{ accept }} · max {{ Math.round(maxSize / 1024 / 1024) }}MB</span>
-    </div>
-    <p v-if="error" class="file-uploader__error">{{ error }}</p>
-    <ul v-if="files.length" class="file-uploader__list">
-      <li v-for="(f, i) in files" :key="i">
-        {{ f.name }} ({{ Math.round(f.size / 1024) }}KB)
-        <button type="button" @click="remove(i)">×</button>
+    <button type="button" class="file-uploader__trigger" @click="inputEl?.click()">
+      <span>{{ label }}</span>
+      <span class="file-uploader__meta">
+        {{ accept }} {{ report.uploadMax(Math.round(maxSize / 1024 / 1024)) }}
+      </span>
+    </button>
+    <p v-if="error" class="form-field__error">{{ error }}</p>
+    <ul v-if="files.length" class="file-uploader__files">
+      <li v-for="(f, i) in files" :key="i" class="file-uploader__file">
+        <span>{{ f.name }} {{ report.uploadSize(Math.round(f.size / 1024)) }}</span>
+        <button
+          type="button"
+          class="file-uploader__remove"
+          :aria-label="file.ariaRemove"
+          @click="remove(i)"
+        >✕</button>
       </li>
     </ul>
   </div>
@@ -30,6 +37,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { file, report } from '@/i18n/zh';
 
 const props = withDefaults(
   defineProps<{
@@ -38,7 +46,7 @@ const props = withDefaults(
     maxSize?: number;
     label?: string;
   }>(),
-  { multiple: false, accept: 'image/*', maxSize: 20 * 1024 * 1024, label: 'Drag & drop or click' },
+  { multiple: false, accept: 'image/*', maxSize: 20 * 1024 * 1024, label: report.uploadHint },
 );
 const emit = defineEmits<{ 'update:files': [File[]] }>();
 
@@ -51,7 +59,7 @@ function addFiles(list: FileList | null) {
   if (!list) return;
   for (const f of Array.from(list)) {
     if (f.size > props.maxSize) {
-      error.value = `${f.name} 超过 ${Math.round(props.maxSize / 1024 / 1024)}MB 上限`;
+      error.value = file.tooLarge(f.name, Math.round(props.maxSize / 1024 / 1024));
       continue;
     }
     files.value.push(f);
@@ -77,48 +85,13 @@ function remove(i: number) {
 </script>
 
 <style scoped>
-.file-uploader {
-  border: 2px dashed var(--paper-shadow);
-  background: var(--paper);
-  padding: 24px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.file-uploader.is-dragging { border-color: var(--stamp-red); background: var(--alert-bg); }
-.file-uploader.is-error { border-color: var(--stamp-red); }
-.file-uploader__label {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--ink);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-.file-uploader__hint {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--ink-faint);
-}
-.file-uploader__error {
-  color: var(--stamp-red);
-  font-size: 12px;
-  margin-top: 8px;
-  font-family: var(--font-mono);
-}
-.file-uploader__list {
-  list-style: none;
-  padding: 0;
-  margin-top: 12px;
-  text-align: left;
-}
-.file-uploader__list li {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  padding: 4px 0;
-  display: flex;
-  justify-content: space-between;
+.file-uploader__native {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>

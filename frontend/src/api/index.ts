@@ -1,4 +1,5 @@
 import axios, { type AxiosInstance } from 'axios';
+import { consoleMessages } from '@/i18n/zh';
 
 const api: AxiosInstance = axios.create({
   baseURL: '/api',
@@ -9,9 +10,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 429) {
-      console.warn('请求过于频繁，请稍后再试');
+      console.warn(consoleMessages.apiRateLimited);
     } else if (error.response?.status >= 500) {
-      console.error('服务器错误');
+      console.error(consoleMessages.apiServerError);
     }
     return Promise.reject(error);
   },

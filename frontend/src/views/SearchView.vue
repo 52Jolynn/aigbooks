@@ -1,22 +1,16 @@
 <template>
   <main class="ledger">
-    <SectionHeader num="§ 02 —" title="Search the Dossier" :meta="`Query: ${q || '—'}`" />
-    <div style="text-align:center; margin-bottom:32px">
+    <SectionHeader
+      :num="search.sectionNum"
+      :title="search.sectionTitle"
+      :meta="search.sectionMeta(q)"
+    />
+    <div class="search-wrap">
       <SearchBox v-model="q" @search="onSearch" />
     </div>
     <ReportsGrid v-if="results.length" :reports="results" />
-    <div
-      v-else-if="q"
-      style="text-align:center; padding:64px 32px; font-family:var(--font-display); font-style:italic; color:var(--ink-soft)"
-    >
-      No reports filed yet for "{{ q }}".
-    </div>
-    <div
-      v-else
-      style="text-align:center; padding:64px 32px; font-family:var(--font-display); font-style:italic; color:var(--ink-soft)"
-    >
-      Enter a keyword to search.
-    </div>
+    <div v-else-if="q" class="search-empty">{{ search.empty(q) }}</div>
+    <div v-else class="search-empty">{{ search.prompt }}</div>
   </main>
 </template>
 
@@ -25,6 +19,7 @@ import { ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { searchReports } from '@/api/search';
 import type { ReportOut } from '@/api/books';
+import { consoleMessages, search } from '@/i18n/zh';
 import SectionHeader from '@/components/SectionHeader.vue';
 import ReportsGrid from '@/components/ReportsGrid.vue';
 import SearchBox from '@/components/SearchBox.vue';
@@ -43,7 +38,7 @@ async function doSearch(query: string) {
     const data = await searchReports(query);
     results.value = data.reports;
   } catch (e) {
-    console.error('Search failed:', e);
+    console.error(consoleMessages.searchFailed, e);
     results.value = [];
   }
 }
@@ -62,3 +57,18 @@ watch(
   { immediate: true },
 );
 </script>
+
+<style scoped>
+.search-wrap {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.search-empty {
+  text-align: center;
+  padding: 64px 32px;
+  font-family: var(--font-cn-display);
+  font-style: italic;
+  color: var(--ink-soft);
+  font-size: 18px;
+}
+</style>

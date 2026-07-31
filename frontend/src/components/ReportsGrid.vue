@@ -1,6 +1,10 @@
 <template>
   <section class="reports-grid">
-    <div v-for="(r, i) in reports" :key="r.id" :style="{ animationDelay: `${0.05 * (i + 1)}s` }">
+    <div
+      v-for="(r, i) in reports"
+      :key="r.id"
+      :style="{ animationDelay: `${0.05 * (i + 1)}s` }"
+    >
       <ReportCard :report="r" :index="i" />
     </div>
   </section>

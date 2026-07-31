@@ -2,6 +2,8 @@
  * Tesseract.js 客户端 OCR 懒加载封装。
  * 失败静默回退，不阻塞表单。
  */
+import { consoleMessages } from '@/i18n/zh';
+
 export interface OCRResult {
   isbn?: string;
   title?: string;
@@ -31,7 +33,7 @@ export async function recognizeText(image: File | Blob): Promise<OCRResult> {
       raw,
     };
   } catch (e) {
-    console.warn('OCR failed:', e);
+    console.warn(consoleMessages.ocrFailed, e);
     return { raw: '' };
   }
 }
