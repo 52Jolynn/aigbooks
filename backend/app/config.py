@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     )
 
     database_url: str = "postgresql+asyncpg://aigbooks:aigbooks@localhost:5432/aigbooks"
+    database_echo: bool = False
     evidence_dir: Path = Path("./var/evidence")
     covers_dir: Path = Path("./var/covers")
 
@@ -35,6 +36,17 @@ class Settings(BaseSettings):
     page_size: int = 20
 
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+
+    @field_validator("database_url")
+    @classmethod
+    def _validate_database_url(cls, v: str) -> str:
+        from app.db.dialect import parse_dialect
+
+        try:
+            parse_dialect(v)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+        return v
 
 
 @lru_cache(maxsize=1)

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy import func, select, update
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_session
+from app.db.upsert import make_upsert
 from app.middleware.rate_limit import check_report_rate_limit
 from app.models import Book, Evidence, Report, Vote
 from app.schemas import ReportOut, VoteCreate
@@ -51,32 +51,28 @@ async def create_report(
     if cover is not None and cover.filename:
         cover_path = await save_cover(cover, isbn)
 
-    upsert_stmt = pg_insert(Book).values(
-        isbn=isbn,
-        title=title,
-        author=author,
-        cover_path=cover_path,
-    )
+    update_set: dict = {
+        "title": title,
+        "author": author,
+        "updated_at": func.now(),
+    }
     if cover_path is not None:
-        upsert_stmt = upsert_stmt.on_conflict_do_update(
-            index_elements=[Book.isbn],
-            set_={
-                "title": upsert_stmt.excluded.title,
-                "author": upsert_stmt.excluded.author,
-                "cover_path": upsert_stmt.excluded.cover_path,
+        update_set["cover_path"] = cover_path
+
+    upsert_stmt = make_upsert(
+        Book,
+        [
+            {
+                "isbn": isbn,
+                "title": title,
+                "author": author,
+                "cover_path": cover_path,
                 "updated_at": func.now(),
-            },
-        )
-    else:
-        upsert_stmt = upsert_stmt.on_conflict_do_update(
-            index_elements=[Book.isbn],
-            set_={
-                "title": upsert_stmt.excluded.title,
-                "author": upsert_stmt.excluded.author,
-                "updated_at": func.now(),
-            },
-        )
-    upsert_stmt = upsert_stmt.returning(Book.id)
+            }
+        ],
+        conflict_keys=["isbn"],
+        update_set=update_set,
+    ).returning(Book.id)
     book_id = (await db.execute(upsert_stmt)).scalar_one()
 
     new_report = Report(
@@ -127,15 +123,22 @@ async def vote_report(
     if not exists_count:
         raise HTTPException(status_code=404, detail={"code": 404, "msg": "举报不存在"})
 
-    insert_stmt = pg_insert(Vote).values(
-        report_id=report_id,
-        ip=ip,
-        fingerprint=fp,
-        vote_type=payload.vote_type,
-    )
-    upsert_stmt = insert_stmt.on_conflict_do_update(
-        index_elements=[Vote.report_id, Vote.ip, Vote.fingerprint],
-        set_={"vote_type": insert_stmt.excluded.vote_type, "created_at": func.now()},
+    upsert_stmt = make_upsert(
+        Vote,
+        [
+            {
+                "report_id": report_id,
+                "ip": ip,
+                "fingerprint": fp,
+                "vote_type": payload.vote_type,
+                "created_at": func.now(),
+            }
+        ],
+        conflict_keys=["report_id", "ip", "fingerprint"],
+        update_set={
+            "vote_type": payload.vote_type,
+            "created_at": func.now(),
+        },
     )
     await db.execute(upsert_stmt)
 

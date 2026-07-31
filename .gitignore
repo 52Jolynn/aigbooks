@@ -36,3 +36,11 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# Runtime / test artifacts
+backend/var/
+backend/seekdb.db/
+backend/*.db
+backend/*.db-*
+backend/.pytest_cache/
+backend/.ruff_cache/

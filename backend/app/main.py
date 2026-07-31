@@ -8,13 +8,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
+from app.db.dialect import current_dialect
 from app.middleware.exception import register_exception_handlers
 from app.routers.books import router as books_router
 from app.routers.feed import router as feed_router
 from app.routers.reports import router as reports_router
 from app.routers.search import router as search_router
+from app.utils.tokenize import warmup as warmup_jieba
 
 logger = logging.getLogger("aigbooks")
 logging.basicConfig(
@@ -25,7 +28,8 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    logger.info("AIGBooks API started")
+    logger.info("AIGBooks API started, dialect=%s", current_dialect())
+    await run_in_threadpool(warmup_jieba)
     yield
     logger.info("AIGBooks API stopped")
 

@@ -1,6 +1,6 @@
 """FTS 输入清洗测试（纯逻辑，不需 DB）。"""
 
-from app.search import sanitize_query
+from app.utils.text import sanitize_query
 
 
 def test_sanitize_query_removes_special_chars():
