@@ -20,7 +20,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    database_url: str = "postgresql+asyncpg://aigbooks:aigbooks@localhost:5432/aigbooks"
+    database_url: str = "sqlite+aiosqlite:///./var/aigbooks.db"
     database_echo: bool = False
     evidence_dir: Path = Path("./var/evidence")
     covers_dir: Path = Path("./var/covers")
