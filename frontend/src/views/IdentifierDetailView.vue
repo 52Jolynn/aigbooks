@@ -53,7 +53,7 @@
             <p class="report-timeline__body">「{{ r.description }}」</p>
             <EvidenceList :evidences="r.evidences" />
             <footer class="report-timeline__footer">
-              <VoteButton :report="r" />
+              <VoteButton :report="r" @voted="onReportVoted(r.id, $event)" />
             </footer>
           </li>
         </ul>
@@ -71,6 +71,7 @@ import {
   IDENTIFIER_TYPE_LABEL,
   type IdentifierDetailOut,
   type IdentifierType,
+  type ReportOut,
 } from '@/api/identifiers';
 import { card, detail, formatCaseNumber } from '@/i18n/zh';
 import SectionHeader from '@/components/SectionHeader.vue';
@@ -116,6 +117,13 @@ const shouldWarn = computed(() => {
   const down = identifier.value.reports.reduce((s, r) => s + r.downvote, 0);
   return up - down >= 5 && up >= 3;
 });
+
+function onReportVoted(id: number, updated: ReportOut) {
+  if (!identifier.value) return;
+  const idx = identifier.value.reports.findIndex(r => r.id === id);
+  if (idx < 0) return;
+  identifier.value.reports[idx] = { ...identifier.value.reports[idx], ...updated };
+}
 
 onMounted(() => load(route.params.type as IdentifierType, route.params.identifier as string));
 watch(
