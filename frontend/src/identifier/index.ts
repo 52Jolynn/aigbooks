@@ -43,7 +43,7 @@ export async function recognizeIdentifier(
     title: ocr.title,
     author: ocr.author,
     source,
-    error: ocr.error,
+    error: isbn || issn ? undefined : ocr.error,
     raw: ocr.raw || barcode.raw,
     blur: ocr.blur,
   };

@@ -85,6 +85,7 @@
           :label="typeLabel(type)"
           :placeholder="typePlaceholder(type)"
           :error="errors.identifier"
+          @update:modelValue="onIdentifierInput"
         />
         <FormField v-model="title" :label="report.fieldTitle" :error="errors.title" />
         <FormField v-model="author" :label="report.fieldAuthor" :error="errors.author" />
@@ -208,16 +209,23 @@ function setType(t: IdentifierType) {
   type.value = t;
   identifier.value = '';
   errors.identifier = '';
+  recognitionInfo.value = null;
 }
 
 function setOcrMode(m: OcrMode) {
   if (ocrMode.value === m) return;
   ocrMode.value = m;
   ocrFiles.value = [];
+  recognitionInfo.value = null;
 }
 
 function onOCRFiles(files: File[]) {
   ocrFiles.value = files;
+  recognitionInfo.value = null;
+}
+
+function onIdentifierInput() {
+  recognitionInfo.value = null;
 }
 function onCameraFile(file: File | null) {
   ocrFiles.value = file ? [file] : [];
@@ -252,7 +260,6 @@ async function runOCR() {
         isbn: barcode.isbn,
         issn: barcode.issn,
         source: barcode.isbn || barcode.issn ? 'barcode' : 'none',
-        error: 'noMatch',
         raw: barcode.raw,
       };
     } else {

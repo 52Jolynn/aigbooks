@@ -11,20 +11,10 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp',
-    },
     proxy: {
       '/api': { target: 'http://localhost:8000', changeOrigin: true },
       '/covers': { target: 'http://localhost:8000', changeOrigin: true },
       '/evidence': { target: 'http://localhost:8000', changeOrigin: true },
-    },
-  },
-  preview: {
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp',
     },
   },
   build: {
