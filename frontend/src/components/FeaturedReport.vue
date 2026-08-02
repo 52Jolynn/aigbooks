@@ -4,17 +4,20 @@
       <div class="sample-bag">
         <div class="sample-bag__cover">
           <img
-            v-if="report.identifier.cover_path"
-            :src="coverUrl ?? ''"
+            v-if="coverSrc && !coverFailed"
+            :src="coverSrc"
             :alt="report.identifier.title"
+            @error="coverFailed = true"
           />
-          <span v-else class="sample-bag__cover-fallback">无</span>
-          <span class="sample-bag__cover-corner sample-bag__cover-corner--bl">
-            {{ typeLabel }} {{ report.identifier.identifier }}
-          </span>
-          <span class="sample-bag__cover-corner sample-bag__cover-corner--br">
-            {{ caseNumber }}
-          </span>
+          <DefaultCover
+            v-else
+            :aria-label="defaultCoverAlt"
+            :type="report.identifier.type"
+            :identifier="report.identifier.identifier"
+            :title="report.identifier.title"
+            :author="report.identifier.author"
+            :report-count="report.identifier.report_count"
+          />
         </div>
       </div>
     </div>
@@ -42,22 +45,35 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
   IDENTIFIER_TYPE_LABEL,
   type ReportOut,
 } from '@/api/identifiers';
-import { card, formatCaseNumber, formatRelative } from '@/i18n/zh';
+import { card, formatRelative } from '@/i18n/zh';
+import DefaultCover from './DefaultCover.vue';
 import Stamp from './Stamp.vue';
 
 const props = defineProps<{ report: ReportOut }>();
 
 const typeLabel = computed(() => IDENTIFIER_TYPE_LABEL[props.report.identifier.type]);
 
-const coverUrl = computed(() =>
+const defaultCoverAlt = computed(
+  () => `${props.report.identifier.title} · 默认封面 / 无封面`,
+);
+
+const coverSrc = computed(() =>
   props.report.identifier.cover_path
     ? `/covers/${props.report.identifier.cover_path}`
     : null,
+);
+
+const coverFailed = ref(false);
+watch(
+  () => props.report.identifier.cover_path,
+  () => {
+    coverFailed.value = false;
+  },
 );
 
 const detailLink = computed(
@@ -66,5 +82,4 @@ const detailLink = computed(
 );
 
 const relativeTime = computed(() => formatRelative(props.report.created_at));
-const caseNumber = computed(() => formatCaseNumber(props.report.id, new Date(props.report.created_at)));
 </script>

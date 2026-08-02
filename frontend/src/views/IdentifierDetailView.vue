@@ -7,17 +7,21 @@
         <div class="sample-bag">
           <div class="sample-bag__cover">
             <img
-              v-if="identifier.cover_path"
-              :src="`/covers/${identifier.cover_path}`"
+              v-if="coverSrc && !coverFailed"
+              :src="coverSrc"
               :alt="identifier.title"
+              @error="coverFailed = true"
             />
-            <span v-else class="sample-bag__cover-fallback" aria-hidden="true">无</span>
-            <span class="sample-bag__cover-corner sample-bag__cover-corner--bl">
-              {{ typeLabel }} {{ identifier.identifier }}
-            </span>
-            <span class="sample-bag__cover-corner sample-bag__cover-corner--br">
-              {{ earliestLabel }}
-            </span>
+            <DefaultCover
+              v-else
+              :aria-label="defaultCoverAlt"
+              :type="identifier.type"
+              :identifier="identifier.identifier"
+              :title="identifier.title"
+              :author="identifier.author"
+              :report-count="identifier.report_count"
+              :created-at="identifier.created_at"
+            />
           </div>
         </div>
         <h1 class="identifier-detail__title">{{ identifier.title }}</h1>
@@ -28,6 +32,13 @@
         <Stamp :count="identifier.report_count" size="featured">
           {{ card.reportedCount(identifier.report_count) }}
         </Stamp>
+
+        <div class="sample-bag__corners">
+          <span class="sample-bag__corner">
+            {{ typeLabel }} {{ identifier.identifier }}
+          </span>
+          <span class="sample-bag__corner">{{ earliestLabel }}</span>
+        </div>
 
         <div v-if="shouldWarn" class="identifier-detail__warning" role="note">
           <p class="identifier-detail__warning-title">{{ detail.warningTitle }}</p>
@@ -74,6 +85,7 @@ import {
   type ReportOut,
 } from '@/api/identifiers';
 import { card, detail, formatCaseNumber } from '@/i18n/zh';
+import DefaultCover from '@/components/DefaultCover.vue';
 import SectionHeader from '@/components/SectionHeader.vue';
 import Stamp from '@/components/Stamp.vue';
 import VoteButton from '@/components/VoteButton.vue';
@@ -88,6 +100,22 @@ const typeLabel = computed(() => {
   const t = (route.params.type as IdentifierType) ?? 'isbn';
   return IDENTIFIER_TYPE_LABEL[t] ?? t.toUpperCase();
 });
+
+const defaultCoverAlt = computed(() =>
+  identifier.value ? `${identifier.value.title} · 默认封面` : '默认封面',
+);
+
+const coverSrc = computed(() =>
+  identifier.value?.cover_path ? `/covers/${identifier.value.cover_path}` : null,
+);
+
+const coverFailed = ref(false);
+watch(
+  () => identifier.value?.cover_path,
+  () => {
+    coverFailed.value = false;
+  },
+);
 
 async function load(type: IdentifierType, id: string) {
   loading.value = true;
