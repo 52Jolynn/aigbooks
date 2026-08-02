@@ -52,8 +52,9 @@ async def get_book_detail(
         select(Book)
         .where(Book.isbn == isbn)
         .options(
-            selectinload(Book.reports).selectinload(  # type: ignore[attr-defined]
-                Report.evidences  # type: ignore[attr-defined]
+            selectinload(Book.reports).options(  # type: ignore[attr-defined]
+                selectinload(Report.book),  # type: ignore[attr-defined]
+                selectinload(Report.evidences),  # type: ignore[attr-defined]
             )
         )
     )
