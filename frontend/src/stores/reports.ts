@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { getRecentReports, type ReportOut } from '@/api/books';
+import { getRecentIdentifiers, type ReportOut } from '@/api/identifiers';
 import { consoleMessages } from '@/i18n/zh';
 
 export const useRecentStore = defineStore('recent', () => {
@@ -11,7 +11,7 @@ export const useRecentStore = defineStore('recent', () => {
   async function refresh() {
     loading.value = true;
     try {
-      const data = await getRecentReports();
+      const data = await getRecentIdentifiers();
       reports.value = data.reports;
       total.value = data.total;
     } catch (e) {

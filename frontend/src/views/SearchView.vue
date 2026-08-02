@@ -49,7 +49,7 @@
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { searchReports, type SearchField } from '@/api/search';
-import type { ReportOut } from '@/api/books';
+import type { ReportOut } from '@/api/identifiers';
 import { consoleMessages, search } from '@/i18n/zh';
 import SectionHeader from '@/components/SectionHeader.vue';
 import ReportsGrid from '@/components/ReportsGrid.vue';
@@ -65,7 +65,7 @@ type FieldItem = { value: SearchField; label: string };
 
 const fields: FieldItem[] = [
   { value: 'all', label: search.field.all },
-  { value: 'isbn', label: search.field.isbn },
+  { value: 'identifier', label: search.field.identifier },
   { value: 'title', label: search.field.title },
   { value: 'author', label: search.field.author },
   { value: 'description', label: search.field.description },

@@ -1,7 +1,7 @@
 import api from './index';
-import type { ReportOut } from './books';
+import type { ReportOut } from './identifiers';
 
-export type SearchField = 'all' | 'isbn' | 'title' | 'author' | 'description';
+export type SearchField = 'all' | 'identifier' | 'title' | 'author' | 'description';
 
 export interface SearchResultOut {
   reports: ReportOut[];

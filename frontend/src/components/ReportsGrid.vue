@@ -11,7 +11,7 @@
 </template>
 
 <script setup lang="ts">
-import type { ReportOut } from '@/api/books';
+import type { ReportOut } from '@/api/identifiers';
 import ReportCard from './ReportCard.vue';
 
 defineProps<{ reports: ReportOut[] }>();

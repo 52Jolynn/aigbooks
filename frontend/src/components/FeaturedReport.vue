@@ -4,13 +4,13 @@
       <div class="sample-bag">
         <div class="sample-bag__cover">
           <img
-            v-if="report.book.cover_path"
+            v-if="report.identifier.cover_path"
             :src="coverUrl ?? ''"
-            :alt="report.book.title"
+            :alt="report.identifier.title"
           />
           <span v-else class="sample-bag__cover-fallback">无</span>
           <span class="sample-bag__cover-corner sample-bag__cover-corner--bl">
-            ISBN {{ report.book.isbn }}
+            {{ typeLabel }} {{ report.identifier.identifier }}
           </span>
           <span class="sample-bag__cover-corner sample-bag__cover-corner--br">
             {{ caseNumber }}
@@ -26,15 +26,16 @@
         </span>
       </div>
       <h2 class="featured__title">
-        <RouterLink :to="`/books/${report.book.isbn}`">{{ report.book.title }}</RouterLink>
+        <RouterLink :to="detailLink">{{ report.identifier.title }}</RouterLink>
       </h2>
-      <p class="featured__author">{{ report.book.author }}</p>
+      <p class="featured__author">{{ report.identifier.author }}</p>
       <p class="featured__meta">
-        ISBN {{ report.book.isbn }} · {{ card.reportedCount(report.book.report_count) }}
+        {{ typeLabel }} {{ report.identifier.identifier }} ·
+        {{ card.reportedCount(report.identifier.report_count) }}
       </p>
       <blockquote class="featured__lede">「{{ report.description }}」</blockquote>
-      <Stamp :count="report.book.report_count" size="featured">
-        {{ card.reportedCount(report.book.report_count) }}
+      <Stamp :count="report.identifier.report_count" size="featured">
+        {{ card.reportedCount(report.identifier.report_count) }}
       </Stamp>
     </div>
   </article>
@@ -42,14 +43,26 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { ReportOut } from '@/api/books';
+import {
+  IDENTIFIER_TYPE_LABEL,
+  type ReportOut,
+} from '@/api/identifiers';
 import { card, formatCaseNumber, formatRelative } from '@/i18n/zh';
 import Stamp from './Stamp.vue';
 
 const props = defineProps<{ report: ReportOut }>();
 
+const typeLabel = computed(() => IDENTIFIER_TYPE_LABEL[props.report.identifier.type]);
+
 const coverUrl = computed(() =>
-  props.report.book.cover_path ? `/covers/${props.report.book.cover_path}` : null,
+  props.report.identifier.cover_path
+    ? `/covers/${props.report.identifier.cover_path}`
+    : null,
+);
+
+const detailLink = computed(
+  () =>
+    `/identifiers/${props.report.identifier.type}/${encodeURIComponent(props.report.identifier.identifier)}`,
 );
 
 const relativeTime = computed(() => formatRelative(props.report.created_at));

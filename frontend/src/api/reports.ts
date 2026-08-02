@@ -1,7 +1,9 @@
 import api from './index';
+import type { IdentifierType } from './identifiers';
 
 export interface CreateReportInput {
-  isbn: string;
+  type: IdentifierType;
+  identifier: string;
   title: string;
   author: string;
   description: string;
@@ -12,7 +14,8 @@ export interface CreateReportInput {
 
 export const createReport = (input: CreateReportInput) => {
   const form = new FormData();
-  form.append('isbn', input.isbn);
+  form.append('type', input.type);
+  form.append('identifier', input.identifier);
   form.append('title', input.title);
   form.append('author', input.author);
   form.append('description', input.description);

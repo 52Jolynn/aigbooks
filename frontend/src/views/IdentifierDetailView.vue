@@ -2,45 +2,47 @@
   <main class="ledger">
     <div v-if="loading" class="state-loading">{{ detail.loading }}</div>
     <div v-else-if="error" class="state-error">{{ error }}</div>
-    <div v-else-if="book" class="book-detail">
-      <aside class="book-detail__meta">
+    <div v-else-if="identifier" class="identifier-detail">
+      <aside class="identifier-detail__meta">
         <div class="sample-bag">
           <div class="sample-bag__cover">
             <img
-              v-if="book.cover_path"
-              :src="`/covers/${book.cover_path}`"
-              :alt="book.title"
+              v-if="identifier.cover_path"
+              :src="`/covers/${identifier.cover_path}`"
+              :alt="identifier.title"
             />
             <span v-else class="sample-bag__cover-fallback" aria-hidden="true">无</span>
             <span class="sample-bag__cover-corner sample-bag__cover-corner--bl">
-              ISBN {{ book.isbn }}
+              {{ typeLabel }} {{ identifier.identifier }}
             </span>
             <span class="sample-bag__cover-corner sample-bag__cover-corner--br">
               {{ earliestLabel }}
             </span>
           </div>
         </div>
-        <h1 class="book-detail__title">{{ book.title }}</h1>
-        <p class="book-detail__author">{{ book.author }}</p>
-        <p class="book-detail__meta-line">ISBN {{ book.isbn }}</p>
-        <Stamp :count="book.report_count" size="featured">
-          {{ card.reportedCount(book.report_count) }}
+        <h1 class="identifier-detail__title">{{ identifier.title }}</h1>
+        <p class="identifier-detail__author">{{ identifier.author }}</p>
+        <p class="identifier-detail__meta-line">
+          {{ typeLabel }} {{ identifier.identifier }}
+        </p>
+        <Stamp :count="identifier.report_count" size="featured">
+          {{ card.reportedCount(identifier.report_count) }}
         </Stamp>
 
-        <div v-if="shouldWarn" class="book-detail__warning" role="note">
-          <p class="book-detail__warning-title">{{ detail.warningTitle }}</p>
+        <div v-if="shouldWarn" class="identifier-detail__warning" role="note">
+          <p class="identifier-detail__warning-title">{{ detail.warningTitle }}</p>
           <p>{{ detail.warningBody }}</p>
         </div>
       </aside>
 
-      <section class="book-detail__reports">
+      <section class="identifier-detail__reports">
         <SectionHeader
           :num="detail.sectionNum"
           :title="detail.sectionTitle"
-          :meta="detail.sectionMeta(book.reports.length)"
+          :meta="detail.sectionMeta(identifier.reports.length)"
         />
-        <ul v-if="book.reports.length" class="report-timeline">
-          <li v-for="r in book.reports" :key="r.id" class="report-timeline__item">
+        <ul v-if="identifier.reports.length" class="report-timeline">
+          <li v-for="r in identifier.reports" :key="r.id" class="report-timeline__item">
             <header class="report-timeline__head">
               <span class="report-timeline__case">{{ formatCaseNumber(r.id) }}</span>
               <span>{{ card.filedOn }} {{ r.created_at.slice(0, 10) }}</span>
@@ -64,7 +66,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { getBookDetail, type BookDetailOut } from '@/api/books';
+import {
+  getIdentifierDetail,
+  IDENTIFIER_TYPE_LABEL,
+  type IdentifierDetailOut,
+  type IdentifierType,
+} from '@/api/identifiers';
 import { card, detail, formatCaseNumber } from '@/i18n/zh';
 import SectionHeader from '@/components/SectionHeader.vue';
 import Stamp from '@/components/Stamp.vue';
@@ -72,17 +79,22 @@ import VoteButton from '@/components/VoteButton.vue';
 import EvidenceList from '@/components/EvidenceList.vue';
 
 const route = useRoute();
-const book = ref<BookDetailOut | null>(null);
+const identifier = ref<IdentifierDetailOut | null>(null);
 const loading = ref(true);
 const error = ref<string | null>(null);
 
-async function load(isbn: string) {
+const typeLabel = computed(() => {
+  const t = (route.params.type as IdentifierType) ?? 'isbn';
+  return IDENTIFIER_TYPE_LABEL[t] ?? t.toUpperCase();
+});
+
+async function load(type: IdentifierType, id: string) {
   loading.value = true;
   error.value = null;
   try {
-    book.value = await getBookDetail(isbn);
+    identifier.value = await getIdentifierDetail(type, id);
   } catch (e: unknown) {
-    book.value = null;
+    identifier.value = null;
     const status = (e as { response?: { status?: number } })?.response?.status;
     error.value = status === 404 ? detail.notFound : detail.loadFailed;
   } finally {
@@ -91,35 +103,35 @@ async function load(isbn: string) {
 }
 
 const earliestLabel = computed(() => {
-  if (!book.value?.reports?.length) return '—';
-  const first = [...book.value.reports].sort(
+  if (!identifier.value?.reports?.length) return '—';
+  const first = [...identifier.value.reports].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
   )[0];
   return first ? first.created_at.slice(0, 10) : '—';
 });
 
 const shouldWarn = computed(() => {
-  if (!book.value?.reports?.length) return false;
-  const up = book.value.reports.reduce((s, r) => s + r.upvote, 0);
-  const down = book.value.reports.reduce((s, r) => s + r.downvote, 0);
+  if (!identifier.value?.reports?.length) return false;
+  const up = identifier.value.reports.reduce((s, r) => s + r.upvote, 0);
+  const down = identifier.value.reports.reduce((s, r) => s + r.downvote, 0);
   return up - down >= 5 && up >= 3;
 });
 
-onMounted(() => load(route.params.isbn as string));
+onMounted(() => load(route.params.type as IdentifierType, route.params.identifier as string));
 watch(
-  () => route.params.isbn,
-  (isbn) => load(isbn as string),
+  () => [route.params.type, route.params.identifier],
+  ([type, id]) => load(type as IdentifierType, id as string),
 );
 </script>
 
 <style scoped>
-.book-detail {
+.identifier-detail {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
   gap: 48px;
   align-items: start;
 }
-.book-detail__meta { position: sticky; top: 24px; }
+.identifier-detail__meta { position: sticky; top: 24px; }
 .state-loading,
 .state-empty {
   text-align: center;
@@ -135,7 +147,7 @@ watch(
   color: var(--quarantine-warn);
   font-family: var(--font-cn);
 }
-.book-detail__title {
+.identifier-detail__title {
   font-family: var(--font-cn-display);
   font-weight: 700;
   font-size: clamp(28px, 3.6vw, 38px);
@@ -144,13 +156,13 @@ watch(
   margin-top: 18px;
   color: var(--ink);
 }
-.book-detail__author {
+.identifier-detail__author {
   font-family: var(--font-cn);
   font-size: 16px;
   color: var(--ink-soft);
   margin: 6px 0;
 }
-.book-detail__meta-line {
+.identifier-detail__meta-line {
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.08em;
@@ -158,7 +170,7 @@ watch(
   margin-bottom: 14px;
 }
 @media (max-width: 900px) {
-  .book-detail { grid-template-columns: 1fr; }
-  .book-detail__meta { position: static; }
+  .identifier-detail { grid-template-columns: 1fr; }
+  .identifier-detail__meta { position: static; }
 }
 </style>

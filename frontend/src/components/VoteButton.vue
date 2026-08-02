@@ -25,7 +25,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { ReportOut } from '@/api/books';
+import type { ReportOut } from '@/api/identifiers';
 import { voteReport } from '@/api/reports';
 import { useFingerprintStore } from '@/stores/fingerprint';
 import { consoleMessages, vote } from '@/i18n/zh';

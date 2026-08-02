@@ -7,8 +7,9 @@ export const site = {
   brand: 'AI 图书检疫所',
   brandEn: 'AIGBooks',
   title: 'AI 图书检疫所 · AIGBooks',
-  description: '读者自治的 AI 生成书风险档案库。匿名举报，搜索 ISBN 即查风险线索。',
-  keywords: 'AI 生成书, AI 书, 机器印刷, 读者举报, ISBN 查询, AI 图书检疫所',
+  description: '读者自治的 AI 生成内容风险档案库。匿名举报，按 ISBN 或 ISSN 即查风险线索。',
+  keywords:
+    'AI 生成书, AI 书, 机器印刷, 读者举报, ISBN 查询, ISSN 查询, AI 图书检疫所, 期刊预警',
   themeColor: '#0E6B52',
 } as const;
 
@@ -53,13 +54,13 @@ export const search = {
   field: {
     label: '检索范围',
     all: '全部',
-    isbn: 'ISBN',
+    identifier: '编号',
     title: '书名',
     author: '作者',
     description: '描述',
   },
   actionLabel: '检索',
-  placeholder: '按书名、作者、ISBN 或举报描述搜索',
+  placeholder: '按书名、作者、编号（ISBN/ISSN）或举报描述搜索',
 } as const;
 
 export const detail = {
@@ -67,8 +68,8 @@ export const detail = {
   sectionTitle: '举报清单',
   sectionMeta: (count: number) => `共 ${count} 条举报`,
   loading: '加载中…',
-  empty: '该 ISBN 暂无举报。',
-  notFound: '未找到该 ISBN 的档案记录。',
+  empty: '该编号暂无举报。',
+  notFound: '未找到该编号的档案记录。',
   loadFailed: '加载失败。',
   coverFallback: '无封面 / 无记录',
   evidenceAlt: '证据材料',
@@ -87,16 +88,18 @@ export const report = {
   sectionMeta: '匿名提交 · 通过 IP + 浏览器指纹限流 · 每小时 5 次',
   sectionOcr: 'OCR 扫描',
   sectionOcrHint: '可选',
-  sectionMeta_: '书籍信息',
+  sectionMeta_: '书籍/期刊信息',
   sectionAttach: '附件',
+  fieldTypeLabel: '编号类型',
   fieldIsbn: '020 ISBN',
+  fieldIssn: '022 ISSN',
   fieldTitle: '245 题名',
   fieldAuthor: '100 作者',
   fieldDescription: '520 摘要',
   fieldCover: '封面（可选）',
   fieldEvidence: '证据文件（可选）',
   fieldDescriptionPlaceholder: '请描述可疑之处，至少 10 个字…',
-  scanLabel: '扫描 ISBN 或书脊',
+  scanLabel: '扫描 ISBN/ISSN 或书脊',
   scanRunning: '识别中…',
   scanAction: '运行识别',
   submit: '提交举报',
@@ -106,8 +109,8 @@ export const report = {
   uploadSize: (kb: number) => `（${kb} KB）`,
   removeFile: '移除文件',
   errors: {
-    isbn: 'ISBN 格式不正确',
-    titleRequired: '书名必填',
+    identifier: '编号格式不正确',
+    titleRequired: '题名必填',
     authorRequired: '作者必填',
     descriptionMin: '描述至少 10 字',
     rateLimited: '举报过于频繁，请稍后再试',
@@ -125,7 +128,7 @@ export const colophon = {
   line1Bold: '匿名读者',
   line1Tail: '整理维护。',
   line2: '每一条记录都是读者的郑重证词，而非出版商的结论。',
-  line3: '无账号。无追踪。无编辑审核；唯有 ISBN 将我们相连。',
+  line3: '无账号。无追踪。无编辑审核；唯有编号将我们相连。',
 } as const;
 
 export const vote = {

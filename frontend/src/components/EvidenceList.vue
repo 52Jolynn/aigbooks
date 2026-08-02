@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import type { EvidenceOut } from '@/api/books';
+import type { EvidenceOut } from '@/api/identifiers';
 import { detail } from '@/i18n/zh';
 
 defineProps<{ evidences: EvidenceOut[] }>();

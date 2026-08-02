@@ -32,11 +32,25 @@
         <header class="report-form__heading">
           <h3 class="report-form__title">2 · {{ report.sectionMeta_ }}</h3>
         </header>
+
+        <div class="report-form__type" role="radiogroup" :aria-label="report.fieldTypeLabel">
+          <button
+            v-for="t in availableTypes"
+            :key="t"
+            type="button"
+            role="radio"
+            :aria-checked="type === t"
+            class="type-chip"
+            :class="{ 'is-active': type === t }"
+            @click="setType(t)"
+          >{{ typeLabel(t) }}</button>
+        </div>
+
         <FormField
-          v-model="isbn"
-          :label="report.fieldIsbn"
-          placeholder="978-7-100-12345-6"
-          :error="errors.isbn"
+          v-model="identifier"
+          :label="typeLabel(type)"
+          :placeholder="typePlaceholder(type)"
+          :error="errors.identifier"
         />
         <FormField v-model="title" :label="report.fieldTitle" :error="errors.title" />
         <FormField v-model="author" :label="report.fieldAuthor" :error="errors.author" />
@@ -85,6 +99,11 @@
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { createReport } from '@/api/reports';
+import {
+  IDENTIFIER_TYPE_LABEL,
+  IDENTIFIER_TYPE_PLACEHOLDER,
+  type IdentifierType,
+} from '@/api/identifiers';
 import { recognizeText } from '@/ocr';
 import { useFingerprintStore } from '@/stores/fingerprint';
 import { report } from '@/i18n/zh';
@@ -95,7 +114,9 @@ import FileUploader from '@/components/FileUploader.vue';
 const router = useRouter();
 const fpStore = useFingerprintStore();
 
-const isbn = ref('');
+const availableTypes: IdentifierType[] = ['isbn', 'issn'];
+const type = ref<IdentifierType>('isbn');
+const identifier = ref('');
 const title = ref('');
 const author = ref('');
 const description = ref('');
@@ -107,11 +128,26 @@ const submitting = ref(false);
 const formError = ref<string | null>(null);
 
 const errors = reactive<Record<string, string>>({
-  isbn: '',
+  identifier: '',
   title: '',
   author: '',
   description: '',
 });
+
+function typeLabel(t: IdentifierType): string {
+  return IDENTIFIER_TYPE_LABEL[t];
+}
+
+function typePlaceholder(t: IdentifierType): string {
+  return IDENTIFIER_TYPE_PLACEHOLDER[t];
+}
+
+function setType(t: IdentifierType) {
+  if (type.value === t) return;
+  type.value = t;
+  identifier.value = '';
+  errors.identifier = '';
+}
 
 function onOCRFiles(files: File[]) {
   ocrFiles.value = files;
@@ -128,7 +164,13 @@ async function runOCR() {
   ocrLoading.value = true;
   try {
     const result = await recognizeText(ocrFiles.value[0]);
-    if (result.isbn) isbn.value = result.isbn;
+    if (result.isbn) {
+      type.value = 'isbn';
+      identifier.value = result.isbn;
+    } else if (result.issn) {
+      type.value = 'issn';
+      identifier.value = result.issn;
+    }
     if (result.title) title.value = result.title;
     if (result.author) author.value = result.author;
   } finally {
@@ -137,11 +179,18 @@ async function runOCR() {
 }
 
 function validate(): boolean {
-  errors.isbn = /^[0-9-]{10,17}$/.test(isbn.value) ? '' : report.errors.isbn;
+  const v = identifier.value.replace(/[-\s]/g, '');
+  let valid = false;
+  if (type.value === 'isbn') {
+    valid = /^(?:\d{9}[\dX]|\d{13})$/.test(v);
+  } else {
+    valid = /^\d{7}[\dX]$/.test(v);
+  }
+  errors.identifier = valid ? '' : report.errors.identifier;
   errors.title = title.value.trim() ? '' : report.errors.titleRequired;
   errors.author = author.value.trim() ? '' : report.errors.authorRequired;
   errors.description = description.value.length >= 10 ? '' : report.errors.descriptionMin;
-  return !errors.isbn && !errors.title && !errors.author && !errors.description;
+  return !errors.identifier && !errors.title && !errors.author && !errors.description;
 }
 
 async function onSubmit() {
@@ -151,7 +200,8 @@ async function onSubmit() {
   try {
     const fp = await fpStore.ensure();
     const { data } = await createReport({
-      isbn: isbn.value,
+      type: type.value,
+      identifier: identifier.value,
       title: title.value,
       author: author.value,
       description: description.value,
@@ -159,8 +209,10 @@ async function onSubmit() {
       cover: coverFile.value[0],
       evidences: evidenceFiles.value,
     });
-    const respIsbn = (data as { book: { isbn: string } }).book.isbn;
-    router.push(`/books/${respIsbn}`);
+    const respId = (
+      data as { identifier: { type: IdentifierType; identifier: string } }
+    ).identifier;
+    router.push(`/identifiers/${respId.type}/${encodeURIComponent(respId.identifier)}`);
   } catch (e: unknown) {
     const status = (e as { response?: { status?: number } })?.response?.status;
     formError.value = status === 429 ? report.errors.rateLimited : report.errors.submitFailed;
@@ -185,4 +237,32 @@ async function onSubmit() {
   cursor: pointer;
 }
 .report-form__ocr-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.report-form__type {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.type-chip {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  padding: 6px 14px;
+  border: 1px solid var(--surface-rule);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+.type-chip:hover {
+  color: var(--quarantine-ok);
+  border-color: var(--quarantine-ok);
+}
+.type-chip.is-active {
+  background: var(--quarantine-ok);
+  color: #fff;
+  border-color: var(--quarantine-ok);
+}
 </style>
