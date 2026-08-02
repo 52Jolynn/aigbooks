@@ -27,7 +27,7 @@ USER_AGENT = "aigbooks-e2e-pytest/1.0"
 
 def _probe(url: str) -> bool:
     try:
-        r = httpx.get(f"{url.rstrip('/')}/api/books/recent", timeout=1.0)
+        r = httpx.get(f"{url.rstrip('/')}/api/identifiers/recent", timeout=1.0)
         return r.status_code == 200
     except httpx.HTTPError:
         return False
@@ -111,3 +111,9 @@ def fingerprint() -> str:
 def isbn() -> str:
     """一次 e2e 运行共享一个 ISBN。"""
     return f"9787{int(time.time()) % 100_000_000:09d}"
+
+
+@pytest.fixture(scope="session")
+def issn() -> str:
+    """一次 e2e 运行共享一个 ISSN。"""
+    return f"1003-{int(time.time()) % 1000:04d}"

@@ -12,7 +12,8 @@ async def test_vote_upsert_same_direction(client, db_session):
     r1 = await client.post(
         "/api/reports",
         data={
-            "isbn": isbn,
+            "type": "isbn",
+            "identifier": isbn,
             "title": "Vote Test",
             "author": "Tester",
             "description": "Test description for voting.",
@@ -44,7 +45,8 @@ async def test_vote_switch_direction(client, db_session):
     r1 = await client.post(
         "/api/reports",
         data={
-            "isbn": isbn,
+            "type": "isbn",
+            "identifier": isbn,
             "title": "Switch Test",
             "author": "Tester",
             "description": "Test description for direction switch.",

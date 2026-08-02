@@ -26,13 +26,13 @@ from app.database import Base, get_session
 from app.db.constants import DIALECT_POSTGRESQL, URL_SCHEME_SQLITE
 from app.db.dialect import parse_dialect
 from app.main import app
-from app.models import Book, Report
+from app.models import Identifier, Report
 
 _SQLITE_FTS5_DDL = [
     """
-    CREATE VIRTUAL TABLE IF NOT EXISTS books_fts USING fts5(
+    CREATE VIRTUAL TABLE IF NOT EXISTS identifiers_fts USING fts5(
         search_text,
-        content='books', content_rowid='id',
+        content='identifiers', content_rowid='id',
         tokenize='unicode61'
     )
     """,
@@ -44,19 +44,19 @@ _SQLITE_FTS5_DDL = [
     )
     """,
     """
-    CREATE TRIGGER IF NOT EXISTS books_fts_ai AFTER INSERT ON books BEGIN
-        INSERT INTO books_fts(rowid, search_text) VALUES (new.id, new.search_text);
+    CREATE TRIGGER IF NOT EXISTS identifiers_fts_ai AFTER INSERT ON identifiers BEGIN
+        INSERT INTO identifiers_fts(rowid, search_text) VALUES (new.id, new.search_text);
     END
     """,
     """
-    CREATE TRIGGER IF NOT EXISTS books_fts_ad AFTER DELETE ON books BEGIN
-        INSERT INTO books_fts(books_fts, rowid, search_text) VALUES('delete', old.id, old.search_text);
+    CREATE TRIGGER IF NOT EXISTS identifiers_fts_ad AFTER DELETE ON identifiers BEGIN
+        INSERT INTO identifiers_fts(identifiers_fts, rowid, search_text) VALUES('delete', old.id, old.search_text);
     END
     """,
     """
-    CREATE TRIGGER IF NOT EXISTS books_fts_au AFTER UPDATE ON books BEGIN
-        INSERT INTO books_fts(books_fts, rowid, search_text) VALUES('delete', old.id, old.search_text);
-        INSERT INTO books_fts(rowid, search_text) VALUES (new.id, new.search_text);
+    CREATE TRIGGER IF NOT EXISTS identifiers_fts_au AFTER UPDATE ON identifiers BEGIN
+        INSERT INTO identifiers_fts(identifiers_fts, rowid, search_text) VALUES('delete', old.id, old.search_text);
+        INSERT INTO identifiers_fts(rowid, search_text) VALUES (new.id, new.search_text);
     END
     """,
     """
@@ -101,7 +101,11 @@ def _is_sqlite_url(url: str) -> bool:
 
 
 def _has_relationship_defined() -> bool:
-    return hasattr(Report, "evidences") and hasattr(Report, "book") and hasattr(Book, "reports")
+    return (
+        hasattr(Report, "evidences")
+        and hasattr(Report, "identifier")
+        and hasattr(Identifier, "reports")
+    )
 
 
 @pytest.fixture
@@ -148,11 +152,11 @@ async def test_engine(test_db_url: str):
             await conn.execute(text("DROP TRIGGER IF EXISTS reports_fts_au"))
             await conn.execute(text("DROP TRIGGER IF EXISTS reports_fts_ad"))
             await conn.execute(text("DROP TRIGGER IF EXISTS reports_fts_ai"))
-            await conn.execute(text("DROP TRIGGER IF EXISTS books_fts_au"))
-            await conn.execute(text("DROP TRIGGER IF EXISTS books_fts_ad"))
-            await conn.execute(text("DROP TRIGGER IF EXISTS books_fts_ai"))
+            await conn.execute(text("DROP TRIGGER IF EXISTS identifiers_fts_au"))
+            await conn.execute(text("DROP TRIGGER IF EXISTS identifiers_fts_ad"))
+            await conn.execute(text("DROP TRIGGER IF EXISTS identifiers_fts_ai"))
             await conn.execute(text("DROP TABLE IF EXISTS reports_fts"))
-            await conn.execute(text("DROP TABLE IF EXISTS books_fts"))
+            await conn.execute(text("DROP TABLE IF EXISTS identifiers_fts"))
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
@@ -208,4 +212,4 @@ def require_pg(require_dialect):
 @pytest.fixture
 def require_relationship() -> None:
     if not _has_relationship_defined():
-        pytest.skip("需要 ORM 模型定义 relationship（Report.book/evidences, Book.reports）")
+        pytest.skip("需要 ORM 模型定义 relationship（Report.identifier/evidences, Identifier.reports）")

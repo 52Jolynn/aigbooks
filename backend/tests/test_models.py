@@ -3,49 +3,75 @@
 from sqlalchemy import inspect
 
 from app.database import Base
-from app.models import Book, Evidence, Report, Vote
+from app.models import Evidence, Identifier, Report, Vote
 
 
 def test_models_importable():
     """所有 4 个 ORM 类可导入并继承 Base。"""
-    assert hasattr(Book, "__tablename__")
+    assert hasattr(Identifier, "__tablename__")
     assert hasattr(Report, "__tablename__")
     assert hasattr(Evidence, "__tablename__")
     assert hasattr(Vote, "__tablename__")
-    assert Book.__tablename__ == "books"
+    assert Identifier.__tablename__ == "identifiers"
     assert Report.__tablename__ == "reports"
     assert Evidence.__tablename__ == "evidences"
     assert Vote.__tablename__ == "votes"
 
 
 def test_models_inherit_base():
-    assert issubclass(Book, Base)
+    assert issubclass(Identifier, Base)
     assert issubclass(Report, Base)
     assert issubclass(Evidence, Base)
     assert issubclass(Vote, Base)
 
 
-def test_books_table_columns():
-    """books 表字段完整。"""
-    cols = {c.name for c in Book.__table__.columns}
-    expected = {"id", "isbn", "title", "author", "cover_path", "report_count", "tsv_meta",
-                "created_at", "updated_at"}
+def test_identifiers_table_columns():
+    """identifiers 表字段完整。"""
+    cols = {c.name for c in Identifier.__table__.columns}
+    expected = {
+        "id",
+        "type",
+        "identifier",
+        "title",
+        "author",
+        "cover_path",
+        "report_count",
+        "tsv_meta",
+        "created_at",
+        "updated_at",
+    }
     assert expected.issubset(cols)
 
 
 def test_reports_table_columns():
     """reports 表字段完整。"""
     cols = {c.name for c in Report.__table__.columns}
-    expected = {"id", "book_id", "description", "tsv_desc", "upvote", "downvote",
-                "ip", "fingerprint", "created_at"}
+    expected = {
+        "id",
+        "identifier_id",
+        "description",
+        "tsv_desc",
+        "upvote",
+        "downvote",
+        "ip",
+        "fingerprint",
+        "created_at",
+    }
     assert expected.issubset(cols)
 
 
 def test_evidences_table_columns():
     """evidences 表字段完整。"""
     cols = {c.name for c in Evidence.__table__.columns}
-    expected = {"id", "report_id", "file_path", "file_kind", "mime_type", "size_bytes",
-                "created_at"}
+    expected = {
+        "id",
+        "report_id",
+        "file_path",
+        "file_kind",
+        "mime_type",
+        "size_bytes",
+        "created_at",
+    }
     assert expected.issubset(cols)
 
 
@@ -58,6 +84,18 @@ def test_votes_table_columns_and_unique():
     assert any(
         any(col.name == "report_id" for col in uc.columns) for uc in unique_constraints
     )
+
+
+def test_identifiers_type_identifier_unique():
+    """identifiers 表的 (type, identifier) 联合唯一约束存在。"""
+    unique_constraints = list(Identifier.__table__.constraints)
+    found = False
+    for uc in unique_constraints:
+        col_names = {col.name for col in uc.columns}
+        if col_names >= {"type", "identifier"}:
+            found = True
+            break
+    assert found, "联合唯一约束 (type, identifier) 缺失"
 
 
 async def test_models_can_create_tables(db_session):
