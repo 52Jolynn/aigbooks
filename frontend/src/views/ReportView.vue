@@ -11,17 +11,38 @@
           <h3 class="report-form__title">1 · {{ report.sectionOcr }}</h3>
           <span class="report-form__hint">{{ report.sectionOcrHint }}</span>
         </header>
+        <div
+          class="report-form__ocr-mode"
+          role="radiogroup"
+          :aria-label="report.ocrModeLabel"
+        >
+          <button
+            v-for="m in (['upload', 'camera'] as const)"
+            :key="m"
+            type="button"
+            role="radio"
+            :aria-checked="ocrMode === m"
+            class="type-chip"
+            :class="{ 'is-active': ocrMode === m }"
+            @click="setOcrMode(m)"
+          >{{ m === 'upload' ? report.ocrModeUpload : report.ocrModeCamera }}</button>
+        </div>
         <FileUploader
+          v-if="ocrMode === 'upload'"
           :files="ocrFiles"
           accept="image/*"
-          :label="report.scanLabel"
+          :label="report.ocrModeUpload"
           @update:files="onOCRFiles"
         />
+        <CameraCapture
+          v-else
+          @update:file="onCameraFile"
+        />
         <button
-          v-if="ocrFiles[0]"
           type="button"
           class="report-form__ocr-btn"
-          :disabled="ocrLoading"
+          :disabled="!ocrFiles[0] || ocrLoading"
+          :aria-busy="ocrLoading"
           @click="runOCR"
         >
           {{ ocrLoading ? report.scanRunning : report.scanAction }}
@@ -110,6 +131,7 @@ import { report } from '@/i18n/zh';
 import SectionHeader from '@/components/SectionHeader.vue';
 import FormField from '@/components/FormField.vue';
 import FileUploader from '@/components/FileUploader.vue';
+import CameraCapture from '@/components/CameraCapture.vue';
 
 const router = useRouter();
 const fpStore = useFingerprintStore();
@@ -120,6 +142,8 @@ const identifier = ref('');
 const title = ref('');
 const author = ref('');
 const description = ref('');
+type OcrMode = 'upload' | 'camera';
+const ocrMode = ref<OcrMode>('upload');
 const ocrFiles = ref<File[]>([]);
 const coverFile = ref<File[]>([]);
 const evidenceFiles = ref<File[]>([]);
@@ -149,8 +173,17 @@ function setType(t: IdentifierType) {
   errors.identifier = '';
 }
 
+function setOcrMode(m: OcrMode) {
+  if (ocrMode.value === m) return;
+  ocrMode.value = m;
+  ocrFiles.value = [];
+}
+
 function onOCRFiles(files: File[]) {
   ocrFiles.value = files;
+}
+function onCameraFile(file: File | null) {
+  ocrFiles.value = file ? [file] : [];
 }
 function onCoverFile(files: File[]) {
   coverFile.value = files;
@@ -239,6 +272,12 @@ async function onSubmit() {
 .report-form__ocr-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .report-form__type {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.report-form__ocr-mode {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;

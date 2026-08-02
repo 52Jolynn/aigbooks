@@ -1219,6 +1219,51 @@ main.main {
 }
 
 /* ============================================================
+   CameraCapture 错误条
+   ============================================================ */
+
+.camera-capture__error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--quarantine-warn-soft);
+  border: 1px solid var(--quarantine-warn);
+  border-radius: 8px;
+  color: var(--ink);
+  font-family: var(--font-cn);
+  font-size: 13px;
+}
+.camera-capture__error-icon {
+  flex: 0 0 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--quarantine-warn);
+  color: #fff;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+}
+.camera-capture__retry {
+  margin-left: auto;
+  font-family: var(--font-cn);
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--quarantine-warn);
+  background: #fff;
+  color: var(--quarantine-warn);
+  cursor: pointer;
+}
+.camera-capture__retry:hover {
+  background: var(--quarantine-warn);
+  color: #fff;
+}
+
+/* ============================================================
    FormError 横幅
    ============================================================ */
 

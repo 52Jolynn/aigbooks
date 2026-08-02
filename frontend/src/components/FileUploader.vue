@@ -1,7 +1,7 @@
 <template>
   <div
     class="file-uploader"
-    :class="{ 'is-dragging': dragging, 'is-error': error }"
+    :class="{ 'is-dragging': dragging, 'is-error': error, 'file-uploader--camera': !!capture }"
     @dragover.prevent="dragging = true"
     @dragleave="dragging = false"
     @drop.prevent="onDrop"
@@ -11,7 +11,9 @@
       type="file"
       :multiple="multiple"
       :accept="accept"
+      :capture="capture || undefined"
       class="file-uploader__native"
+      :class="{ 'file-uploader__native--camera': !!capture }"
       @change="onChange"
     />
     <button type="button" class="file-uploader__trigger" @click="inputEl?.click()">
@@ -45,6 +47,7 @@ const props = withDefaults(
     accept?: string;
     maxSize?: number;
     label?: string;
+    capture?: 'environment' | 'user';
   }>(),
   { multiple: false, accept: 'image/*', maxSize: 20 * 1024 * 1024, label: report.uploadHint },
 );
@@ -85,6 +88,9 @@ function remove(i: number) {
 </script>
 
 <style scoped>
+.file-uploader--camera {
+  position: relative;
+}
 .file-uploader__native {
   position: absolute;
   width: 1px; height: 1px;
@@ -93,5 +99,21 @@ function remove(i: number) {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+.file-uploader__native--camera {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  clip: auto;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+.file-uploader__remove {
+  position: relative;
+  z-index: 3;
 }
 </style>
