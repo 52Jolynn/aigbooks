@@ -12,6 +12,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
 from app.db.dialect import current_dialect
+from app.logging_config import setup_logging
 from app.middleware.exception import register_exception_handlers
 from app.routers.books import router as books_router
 from app.routers.feed import router as feed_router
@@ -20,10 +21,6 @@ from app.routers.search import router as search_router
 from app.utils.tokenize import warmup as warmup_jieba
 
 logger = logging.getLogger("aigbooks")
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
 
 
 @asynccontextmanager
@@ -36,6 +33,8 @@ async def lifespan(_app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    setup_logging(settings)
+
     app = FastAPI(
         title="AIGBooks API",
         version="0.1.0",
@@ -52,6 +51,7 @@ def create_app() -> FastAPI:
 
     settings.covers_dir.mkdir(parents=True, exist_ok=True)
     settings.evidence_dir.mkdir(parents=True, exist_ok=True)
+    settings.log_dir.mkdir(parents=True, exist_ok=True)
     app.mount(
         "/covers",
         StaticFiles(directory=str(settings.covers_dir.resolve()), check_dir=False),

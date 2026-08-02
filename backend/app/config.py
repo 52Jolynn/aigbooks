@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     database_echo: bool = False
     evidence_dir: Path = Path("./var/evidence")
     covers_dir: Path = Path("./var/covers")
+    log_dir: Path = Path("./var/logs")
+    log_level: str = "INFO"
+    log_retention_days: int = 14
+    log_to_console: bool = True
 
     max_upload_size: int = 20 * 1024 * 1024
     allowed_mime_types: list[str] = Field(
