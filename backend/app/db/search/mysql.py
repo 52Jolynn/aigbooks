@@ -32,7 +32,7 @@ class MysqlSearchBackend:
             """
             SELECT r.id
             FROM reports r
-            JOIN books b ON b.id = r.book_id
+            JOIN identifiers b ON b.id = r.identifier_id
             WHERE MATCH(r.description) AGAINST(:q IN BOOLEAN MODE)
                OR MATCH(b.title, b.author) AGAINST(:q IN BOOLEAN MODE)
             ORDER BY r.created_at DESC

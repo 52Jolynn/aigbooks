@@ -14,8 +14,8 @@ from app.config import get_settings
 from app.db.dialect import current_dialect
 from app.logging_config import setup_logging
 from app.middleware.exception import register_exception_handlers
-from app.routers.books import router as books_router
 from app.routers.feed import router as feed_router
+from app.routers.identifiers import router as identifiers_router
 from app.routers.reports import router as reports_router
 from app.routers.search import router as search_router
 from app.utils.tokenize import warmup as warmup_jieba
@@ -64,7 +64,7 @@ def create_app() -> FastAPI:
     )
 
     register_exception_handlers(app)
-    app.include_router(books_router, prefix="/api", tags=["books"])
+    app.include_router(identifiers_router, prefix="/api", tags=["identifiers"])
     app.include_router(reports_router, prefix="/api", tags=["reports"])
     app.include_router(search_router, prefix="/api", tags=["search"])
     app.include_router(feed_router, prefix="/api", tags=["feed"])

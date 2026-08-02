@@ -3,7 +3,7 @@
 设计原则：
 - 响应模型统一开启 ``from_attributes=True``，从 ORM 对象自动转换
 - 嵌套结构显式建模，避免依赖隐式 ORM 关系（schemas 不 import models）
-- 请求模型只校验必要字段，业务规则（如 ISBN 格式）放在 router 层
+- 请求模型只校验必要字段，业务规则（如 identifier 格式）放在 router 层
 """
 
 from __future__ import annotations
@@ -14,12 +14,13 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class BookSummary(BaseModel):
-    """用于嵌套在 ``ReportOut`` 中的书籍摘要。"""
+class IdentifierSummary(BaseModel):
+    """用于嵌套在 ``ReportOut`` 中的聚合根摘要。"""
 
     model_config = ConfigDict(from_attributes=True)
 
-    isbn: str
+    type: str
+    identifier: str
     title: str
     author: str
     cover_path: str | None
@@ -40,12 +41,12 @@ class EvidenceOut(BaseModel):
 
 
 class ReportOut(BaseModel):
-    """首页 / 搜索 / 详情共用：举报 + 嵌套书籍摘要 + 证据列表。"""
+    """首页 / 搜索 / 详情共用：举报 + 嵌套聚合根摘要 + 证据列表。"""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    book: BookSummary
+    identifier: IdentifierSummary
     description: str
     upvote: int
     downvote: int
@@ -53,8 +54,8 @@ class ReportOut(BaseModel):
     evidences: list[EvidenceOut] = Field(default_factory=list)
 
 
-class BookDetailOut(BookSummary):
-    """书籍详情：BookSummary + 创建/更新时间 + 全部 reports 列表。"""
+class IdentifierDetailOut(IdentifierSummary):
+    """聚合根详情：IdentifierSummary + 创建/更新时间 + 全部 reports 列表。"""
 
     model_config = ConfigDict(from_attributes=True)
 

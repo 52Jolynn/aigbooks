@@ -24,8 +24,12 @@ _COVER_EXT_BY_MIME = {
 }
 
 
-async def save_cover(file: UploadFile, isbn: str) -> str:
-    """保存封面：先用 python-magic 嗅探真实 MIME，再校验白名单。"""
+async def save_cover(file: UploadFile, type: str, identifier: str) -> str:
+    """保存封面：先用 python-magic 嗅探真实 MIME，再校验白名单。
+
+    路径按 ``type`` 子目录组织：``covers/<type>/<identifier><ext>``。
+    子目录避免不同类型的标识符（例如 ISBN 与 ISSN）冲突。
+    """
     settings = get_settings()
 
     head = await file.read(2048)
@@ -46,14 +50,15 @@ async def save_cover(file: UploadFile, isbn: str) -> str:
             detail={"code": 415, "msg": f"封面格式不支持: {mime}"},
         )
 
-    target = settings.covers_dir / f"{isbn}{ext}"
+    rel = f"{type}/{identifier}{ext}"
+    target = settings.covers_dir / rel
     target.parent.mkdir(parents=True, exist_ok=True)
 
     content = await file.read()
     if len(content) > settings.max_upload_size:
         raise HTTPException(status_code=413, detail={"code": 413, "msg": "封面文件过大"})
     target.write_bytes(content)
-    return f"{isbn}{ext}"
+    return rel
 
 
 async def save_evidence(file: UploadFile) -> tuple[str, str, int]:

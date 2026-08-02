@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
 from app.db.search import get_search_backend
-from app.models import Book, Report
+from app.models import Identifier, Report
 
 
 async def search_reports(
@@ -25,12 +25,12 @@ async def search_reports(
         like_pattern = f"%{cleaned or q}%"
         stmt = (
             select(Report)
-            .join(Book, Book.id == Report.book_id)
-            .options(selectinload(Report.book), selectinload(Report.evidences))
+            .join(Identifier, Identifier.id == Report.identifier_id)
+            .options(selectinload(Report.identifier), selectinload(Report.evidences))
             .where(
                 or_(
-                    Book.title.ilike(like_pattern),
-                    Book.author.ilike(like_pattern),
+                    Identifier.title.ilike(like_pattern),
+                    Identifier.author.ilike(like_pattern),
                     Report.description.ilike(like_pattern),
                 )
             )
@@ -43,7 +43,7 @@ async def search_reports(
     stmt = (
         select(Report)
         .where(Report.id.in_(ids))
-        .options(selectinload(Report.book), selectinload(Report.evidences))
+        .options(selectinload(Report.identifier), selectinload(Report.evidences))
         .order_by(Report.created_at.desc())
     )
     result = await db.execute(stmt)

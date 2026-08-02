@@ -29,7 +29,7 @@ class PostgresSearchBackend:
             """
             SELECT r.id
             FROM reports r
-            JOIN books b ON b.id = r.book_id
+            JOIN identifiers b ON b.id = r.identifier_id
             WHERE r.tsv_desc @@ websearch_to_tsquery('simple', :q)
                OR b.tsv_meta @@ websearch_to_tsquery('simple', :q)
             ORDER BY r.created_at DESC

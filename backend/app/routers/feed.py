@@ -34,7 +34,7 @@ async def get_feed_reports(
     settings = get_settings()
     stmt = (
         select(Report)
-        .options(selectinload(Report.book))  # type: ignore[attr-defined]
+        .options(selectinload(Report.identifier))  # type: ignore[attr-defined]
         .order_by(Report.created_at.desc())
         .limit(settings.page_size)
     )
@@ -54,10 +54,10 @@ async def get_feed_reports(
 
     for r in reports:
         item = fe.add_entry()
-        book = r.book  # type: ignore[attr-defined]
+        target = r.identifier  # type: ignore[attr-defined]
         item.id(f"report-{r.id}")
-        item.title(f"[{book.isbn}] {book.title} — {book.author}")
-        item.link(href=f"{site_url}/books/{book.isbn}")
+        item.title(f"[{target.type}:{target.identifier}] {target.title} — {target.author}")
+        item.link(href=f"{site_url}/identifiers/{target.type}/{target.identifier}")
         item.guid(f"report-{r.id}", permalink=False)
         pub = r.created_at if r.created_at.tzinfo else r.created_at.replace(tzinfo=timezone.utc)
         item.published(pub.astimezone(timezone.utc))

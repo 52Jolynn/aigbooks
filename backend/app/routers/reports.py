@@ -10,7 +10,8 @@ from sqlalchemy.orm import selectinload
 from app.database import get_session
 from app.db.upsert import make_upsert
 from app.middleware.rate_limit import check_report_rate_limit
-from app.models import Book, Evidence, Report, Vote
+from app.models import Evidence, Identifier, Report, Vote
+from app.routers.identifiers import _validate_identifier
 from app.schemas import ReportOut, VoteCreate
 from app.services.storage import save_cover, save_evidence
 from app.utils.client_ip import get_client_ip
@@ -19,12 +20,12 @@ router = APIRouter()
 
 
 async def _reload_report(db: AsyncSession, report_id: int) -> Report:
-    """以 Book + evidences 预加载方式重读 Report。"""
+    """以 Identifier + evidences 预加载方式重读 Report。"""
     stmt = (
         select(Report)
         .where(Report.id == report_id)
         .options(
-            selectinload(Report.book),  # type: ignore[attr-defined]
+            selectinload(Report.identifier),  # type: ignore[attr-defined]
             selectinload(Report.evidences),  # type: ignore[attr-defined]
         )
     )
@@ -35,7 +36,8 @@ async def _reload_report(db: AsyncSession, report_id: int) -> Report:
 @router.post("/reports", response_model=ReportOut, status_code=201)
 async def create_report(
     request: Request,
-    isbn: str = Form(..., min_length=10, max_length=17),
+    type: str = Form(..., min_length=1, max_length=16),
+    identifier: str = Form(..., min_length=8, max_length=17),
     title: str = Form(..., min_length=1, max_length=500),
     author: str = Form(..., min_length=1, max_length=200),
     description: str = Form(..., min_length=1, max_length=5000),
@@ -44,12 +46,14 @@ async def create_report(
     evidences: list[UploadFile] | None = File(None),
     db: AsyncSession = Depends(get_session),
 ) -> ReportOut:
+    _validate_identifier(type, identifier)
+
     ip = get_client_ip(request)
     await check_report_rate_limit(db, ip, fingerprint)
 
     cover_path: str | None = None
     if cover is not None and cover.filename:
-        cover_path = await save_cover(cover, isbn)
+        cover_path = await save_cover(cover, type, identifier)
 
     update_set: dict = {
         "title": title,
@@ -60,23 +64,24 @@ async def create_report(
         update_set["cover_path"] = cover_path
 
     upsert_stmt = make_upsert(
-        Book,
+        Identifier,
         [
             {
-                "isbn": isbn,
+                "type": type,
+                "identifier": identifier,
                 "title": title,
                 "author": author,
                 "cover_path": cover_path,
                 "updated_at": func.now(),
             }
         ],
-        conflict_keys=["isbn"],
+        conflict_keys=["type", "identifier"],
         update_set=update_set,
-    ).returning(Book.id)
-    book_id = (await db.execute(upsert_stmt)).scalar_one()
+    ).returning(Identifier.id)
+    identifier_id = (await db.execute(upsert_stmt)).scalar_one()
 
     new_report = Report(
-        book_id=book_id,
+        identifier_id=identifier_id,
         description=description,
         ip=ip,
         fingerprint=fingerprint,
