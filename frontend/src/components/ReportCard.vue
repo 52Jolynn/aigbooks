@@ -22,12 +22,6 @@
     </h3>
     <p class="sample-bag__author">{{ report.identifier.author }}</p>
     <p class="sample-bag__excerpt">{{ excerpt }}</p>
-    <div class="sample-bag__corners">
-      <span class="sample-bag__corner">
-        {{ typeLabel }} {{ report.identifier.identifier }}
-      </span>
-      <span class="sample-bag__corner">{{ caseNumber }}</span>
-    </div>
     <dl class="sample-bag__meta">
       <dt>{{ card.filedOn }}</dt>
       <dd>{{ filedDate }}</dd>
@@ -43,17 +37,12 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import {
-  IDENTIFIER_TYPE_LABEL,
-  type ReportOut,
-} from '@/api/identifiers';
-import { card, formatCaseNumber } from '@/i18n/zh';
+import type { ReportOut } from '@/api/identifiers';
+import { card } from '@/i18n/zh';
 import DefaultCover from './DefaultCover.vue';
 import Stamp from './Stamp.vue';
 
 const props = defineProps<{ report: ReportOut; index?: number }>();
-
-const typeLabel = computed(() => IDENTIFIER_TYPE_LABEL[props.report.identifier.type]);
 
 const defaultCoverAlt = computed(
   () => `${props.report.identifier.title} · 默认封面 / ${card.noCover}`,
@@ -84,7 +73,6 @@ const excerpt = computed(() => {
 });
 
 const filedDate = computed(() => props.report.created_at.slice(0, 10));
-const caseNumber = computed(() => formatCaseNumber(props.report.id, new Date(props.report.created_at)));
 
 const statusLabel = computed(() => card.filedOn);
 const statusClass = computed(() => 'quarantine-stamp--ok');

@@ -26,19 +26,6 @@
         </div>
         <h1 class="identifier-detail__title">{{ identifier.title }}</h1>
         <p class="identifier-detail__author">{{ identifier.author }}</p>
-        <p class="identifier-detail__meta-line">
-          {{ typeLabel }} {{ identifier.identifier }}
-        </p>
-        <Stamp :count="identifier.report_count" size="featured">
-          {{ card.reportedCount(identifier.report_count) }}
-        </Stamp>
-
-        <div class="sample-bag__corners">
-          <span class="sample-bag__corner">
-            {{ typeLabel }} {{ identifier.identifier }}
-          </span>
-          <span class="sample-bag__corner">{{ earliestLabel }}</span>
-        </div>
 
         <div v-if="shouldWarn" class="identifier-detail__warning" role="note">
           <p class="identifier-detail__warning-title">{{ detail.warningTitle }}</p>
@@ -79,7 +66,6 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import {
   getIdentifierDetail,
-  IDENTIFIER_TYPE_LABEL,
   type IdentifierDetailOut,
   type IdentifierType,
   type ReportOut,
@@ -87,7 +73,6 @@ import {
 import { card, detail, formatCaseNumber } from '@/i18n/zh';
 import DefaultCover from '@/components/DefaultCover.vue';
 import SectionHeader from '@/components/SectionHeader.vue';
-import Stamp from '@/components/Stamp.vue';
 import VoteButton from '@/components/VoteButton.vue';
 import EvidenceList from '@/components/EvidenceList.vue';
 
@@ -95,11 +80,6 @@ const route = useRoute();
 const identifier = ref<IdentifierDetailOut | null>(null);
 const loading = ref(true);
 const error = ref<string | null>(null);
-
-const typeLabel = computed(() => {
-  const t = (route.params.type as IdentifierType) ?? 'isbn';
-  return IDENTIFIER_TYPE_LABEL[t] ?? t.toUpperCase();
-});
 
 const defaultCoverAlt = computed(() =>
   identifier.value ? `${identifier.value.title} · 默认封面` : '默认封面',
@@ -130,14 +110,6 @@ async function load(type: IdentifierType, id: string) {
     loading.value = false;
   }
 }
-
-const earliestLabel = computed(() => {
-  if (!identifier.value?.reports?.length) return '—';
-  const first = [...identifier.value.reports].sort(
-    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-  )[0];
-  return first ? first.created_at.slice(0, 10) : '—';
-});
 
 const shouldWarn = computed(() => {
   if (!identifier.value?.reports?.length) return false;
@@ -197,13 +169,6 @@ watch(
   font-size: 16px;
   color: var(--ink-soft);
   margin: 6px 0;
-}
-.identifier-detail__meta-line {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  color: var(--ink-faint);
-  margin-bottom: 14px;
 }
 @media (max-width: 900px) {
   .identifier-detail { grid-template-columns: 1fr; }
