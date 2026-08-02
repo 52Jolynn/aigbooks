@@ -36,6 +36,17 @@ async function getOCR(): Promise<OCRRunner> {
       lang: 'ch',
       ocrVersion: 'PP-OCRv5',
       worker: true,
+      ortOptions: {
+        wasmPaths: '/ort-wasm/',
+      },
+      textDetectionModelName: 'PP-OCRv5_mobile_det',
+      textDetectionModelAsset: {
+        url: '/models/PP-OCRv5_mobile_det.tar',
+      },
+      textRecognitionModelName: 'PP-OCRv5_mobile_rec',
+      textRecognitionModelAsset: {
+        url: '/models/PP-OCRv5_mobile_rec.tar',
+      },
     }) as Promise<OCRRunner>;
   }
   return ocrPromise;
