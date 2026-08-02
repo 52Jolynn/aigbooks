@@ -17,7 +17,7 @@
           :aria-label="report.ocrModeLabel"
         >
           <button
-            v-for="m in (['upload', 'camera'] as const)"
+            v-for="m in (['upload', 'barcode', 'camera'] as const)"
             :key="m"
             type="button"
             role="radio"
@@ -25,20 +25,26 @@
             class="type-chip"
             :class="{ 'is-active': ocrMode === m }"
             @click="setOcrMode(m)"
-          >{{ m === 'upload' ? report.ocrModeUpload : report.ocrModeCamera }}</button>
+          >{{ modeLabel(m) }}</button>
         </div>
+        <p class="report-form__ocr-tip">{{ modeTip(ocrMode) }}</p>
         <FileUploader
           v-if="ocrMode === 'upload'"
           :files="ocrFiles"
           accept="image/*"
-          :label="report.ocrModeUpload"
+          :label="modeLabel(ocrMode)"
           @update:files="onOCRFiles"
+        />
+        <BarcodeScanner
+          v-else-if="ocrMode === 'barcode'"
+          @update:identifier="onBarcodeIdentified"
         />
         <CameraCapture
           v-else
           @update:file="onCameraFile"
         />
         <button
+          v-if="ocrMode !== 'barcode'"
           type="button"
           class="report-form__ocr-btn"
           :disabled="!ocrFiles[0] || ocrLoading"
@@ -47,6 +53,13 @@
         >
           {{ ocrLoading ? report.scanRunning : report.scanAction }}
         </button>
+        <div v-if="recognitionInfo" class="report-form__ocr-info" role="status">
+          <span class="report-form__ocr-info-label">{{ report.recognitionSource }}：</span>
+          <strong>{{ sourceLabel(recognitionInfo.source) }}</strong>
+          <span v-if="recognitionInfo.error" class="report-form__ocr-info-error">
+            {{ errorLabel(recognitionInfo.error) }}
+          </span>
+        </div>
       </section>
 
       <section class="report-form__section">
@@ -125,13 +138,15 @@ import {
   IDENTIFIER_TYPE_PLACEHOLDER,
   type IdentifierType,
 } from '@/api/identifiers';
-import { recognizeText } from '@/ocr';
+import { recognizeIdentifier, type RecognizeResult } from '@/identifier';
+import { recognizeBarcodes } from '@/barcode';
 import { useFingerprintStore } from '@/stores/fingerprint';
 import { report } from '@/i18n/zh';
 import SectionHeader from '@/components/SectionHeader.vue';
 import FormField from '@/components/FormField.vue';
 import FileUploader from '@/components/FileUploader.vue';
 import CameraCapture from '@/components/CameraCapture.vue';
+import BarcodeScanner from '@/components/BarcodeScanner.vue';
 
 const router = useRouter();
 const fpStore = useFingerprintStore();
@@ -142,7 +157,7 @@ const identifier = ref('');
 const title = ref('');
 const author = ref('');
 const description = ref('');
-type OcrMode = 'upload' | 'camera';
+type OcrMode = 'upload' | 'barcode' | 'camera';
 const ocrMode = ref<OcrMode>('upload');
 const ocrFiles = ref<File[]>([]);
 const coverFile = ref<File[]>([]);
@@ -150,6 +165,28 @@ const evidenceFiles = ref<File[]>([]);
 const ocrLoading = ref(false);
 const submitting = ref(false);
 const formError = ref<string | null>(null);
+const recognitionInfo = ref<{ source: string; error?: string } | null>(null);
+
+function sourceLabel(s: string): string {
+  if (s === 'barcode') return report.sourceBarcode;
+  if (s === 'ocr') return report.sourceOcr;
+  return report.sourceNone;
+}
+function errorLabel(e?: string): string {
+  if (e === 'imageTooBlurry') return report.imageTooBlurry;
+  if (e === 'noMatch' || e === 'failed') return report.noMatch;
+  return '';
+}
+function modeLabel(m: OcrMode): string {
+  if (m === 'upload') return report.ocrModeUpload;
+  if (m === 'barcode') return report.ocrModeBarcode;
+  return report.ocrModeCamera;
+}
+function modeTip(m: OcrMode): string {
+  if (m === 'upload') return report.tipUpload;
+  if (m === 'barcode') return report.tipBarcode;
+  return report.tipCamera;
+}
 
 const errors = reactive<Record<string, string>>({
   identifier: '',
@@ -184,6 +221,17 @@ function onOCRFiles(files: File[]) {
 }
 function onCameraFile(file: File | null) {
   ocrFiles.value = file ? [file] : [];
+  if (file) void runOCR();
+}
+function onBarcodeIdentified(payload: { isbn?: string; issn?: string; type: 'isbn' | 'issn' }) {
+  if (payload.isbn) {
+    type.value = 'isbn';
+    identifier.value = payload.isbn;
+  } else if (payload.issn) {
+    type.value = 'issn';
+    identifier.value = payload.issn;
+  }
+  recognitionInfo.value = { source: 'barcode' };
 }
 function onCoverFile(files: File[]) {
   coverFile.value = files;
@@ -195,8 +243,21 @@ function onEvidenceFiles(files: File[]) {
 async function runOCR() {
   if (!ocrFiles.value[0]) return;
   ocrLoading.value = true;
+  recognitionInfo.value = null;
   try {
-    const result = await recognizeText(ocrFiles.value[0]);
+    let result: RecognizeResult;
+    if (ocrMode.value === 'barcode') {
+      const barcode = await recognizeBarcodes(ocrFiles.value[0]);
+      result = {
+        isbn: barcode.isbn,
+        issn: barcode.issn,
+        source: barcode.isbn || barcode.issn ? 'barcode' : 'none',
+        error: 'noMatch',
+        raw: barcode.raw,
+      };
+    } else {
+      result = await recognizeIdentifier(ocrFiles.value[0]);
+    }
     if (result.isbn) {
       type.value = 'isbn';
       identifier.value = result.isbn;
@@ -206,6 +267,10 @@ async function runOCR() {
     }
     if (result.title) title.value = result.title;
     if (result.author) author.value = result.author;
+    recognitionInfo.value = {
+      source: result.source,
+      error: result.error,
+    };
   } finally {
     ocrLoading.value = false;
   }
@@ -271,6 +336,25 @@ async function onSubmit() {
 }
 .report-form__ocr-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
+.report-form__ocr-info {
+  margin-top: 10px;
+  font-family: var(--font-cn);
+  font-size: 12px;
+  color: var(--ink-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+}
+.report-form__ocr-info strong {
+  color: var(--quarantine-ok);
+  font-weight: 500;
+}
+.report-form__ocr-info-error {
+  color: var(--quarantine-warn);
+  margin-left: 4px;
+}
+
 .report-form__type {
   display: flex;
   flex-wrap: wrap;
@@ -282,6 +366,17 @@ async function onSubmit() {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
+}
+.report-form__ocr-tip {
+  font-family: var(--font-cn);
+  font-size: 12px;
+  color: var(--ink-soft);
+  background: var(--surface-tray);
+  border-left: 3px solid var(--quarantine-ok);
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin: 0 0 12px;
+  line-height: 1.6;
 }
 .type-chip {
   font-family: var(--font-mono);
