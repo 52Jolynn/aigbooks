@@ -1,8 +1,10 @@
 /**
- * Tesseract.js 客户端 OCR 懒加载封装。
+ * PaddleOCR.js 客户端 OCR 懒加载封装。
  * 失败静默回退，不阻塞表单。
+ * 单一入口 recognizeCopyrightPage：从版权页/封底 OCR 中提取书名、作者、ISBN/ISSN。
  */
-import type { Worker as TesseractWorker, PSM } from 'tesseract.js';
+import { PaddleOCR } from '@paddleocr/paddleocr-js';
+import type { OcrRuntimeParamsInput, OcrResult } from '@paddleocr/paddleocr-js';
 import { consoleMessages } from '@/i18n/zh';
 import type { IdentifierType } from '@/api/identifiers';
 
@@ -13,44 +15,41 @@ export interface OCRResult {
   title?: string;
   author?: string;
   raw: string;
-  psm?: number;
   blur?: number;
   error?: 'imageTooBlurry' | 'noMatch' | 'failed';
 }
 
-const RECOGNIZE_TIMEOUT_MS = 30_000;
-const PSM_MODES: readonly number[] = [6, 7, 8, 3];
-const WHITELIST = '0123456789XISBNsni- ';
+interface OCRRunner {
+  predict(input: unknown, params?: OcrRuntimeParamsInput): Promise<OcrResult[]>;
+  dispose(): Promise<void>;
+}
+
+const RECOGNIZE_TIMEOUT_MS = 60_000;
 const BLUR_THRESHOLD = 30;
 const MAX_DIM = 2000;
 
-let workerPromise: Promise<TesseractWorker> | null = null;
+let ocrPromise: Promise<OCRRunner> | null = null;
 
-async function getWorker(): Promise<TesseractWorker> {
-  if (!workerPromise) {
-    workerPromise = (async () => {
-      const Tesseract = await import('tesseract.js');
-      return Tesseract.createWorker(['chi_sim', 'eng'], 1, {
-        workerPath: '/tesseract/worker.min.js',
-        corePath: '/tesseract/core',
-        langPath: '/tesseract/lang',
-        logger: import.meta.env.DEV ? (m) => console.log('[ocr]', m) : () => {},
-        errorHandler: (err) => console.error('[ocr] worker error:', err),
-      });
-    })();
+async function getOCR(): Promise<OCRRunner> {
+  if (!ocrPromise) {
+    ocrPromise = PaddleOCR.create({
+      lang: 'ch',
+      ocrVersion: 'PP-OCRv5',
+      worker: true,
+    }) as Promise<OCRRunner>;
   }
-  return workerPromise;
+  return ocrPromise;
 }
 
-async function disposeWorker(): Promise<void> {
-  const cached = workerPromise;
-  workerPromise = null;
+async function disposeOCR(): Promise<void> {
+  const cached = ocrPromise;
+  ocrPromise = null;
   if (!cached) return;
   try {
-    const w = await cached;
-    await w.terminate();
+    const ocr = await cached;
+    await ocr.dispose();
   } catch {
-    // terminate 失败不影响下次重建
+    // dispose 失败不影响下次重建
   }
 }
 
@@ -98,9 +97,6 @@ function expandToIsbn13(s: string): string | null {
 }
 
 function normalizeOcrDigits(s: string): string {
-  // 视觉混淆字符 O/I/l → 0/1/1；连字符 / 空格 → 抹平；ISBN/ISSN 前缀 → 抹平
-  // 这样 "ISBN 978-3-16-148410-0" 才能匹配 \b97[89]\d{10}\b
-  // （"ISBN" 紧贴数字会让 \b 失效，必须先剥掉）
   return s
     .replace(/[-\s]/g, '')
     .replace(/ISBN/gi, '')
@@ -128,6 +124,29 @@ function extractIdentifiers(raw: string): {
   const issnMatch = text.match(/\b\d{7}[\dX]\b/);
   if (issnMatch && isValidIssn(issnMatch[0])) {
     return { issn: issnMatch[0], identifierType: 'issn' };
+  }
+  return {};
+}
+
+function extractCipInfo(raw: string): { title?: string; author?: string } {
+  const text = raw.replace(/\s+/g, ' ').trim();
+  const cipMatch = text.match(
+    /(?:CIP[)）]\s*)?数据\s*\n?\s*(.+?)\s*\/\s*(.+?)(?:\s*[.．]\s*--|\s*编著|\s*编\s|$)/m,
+  );
+  if (cipMatch) {
+    const title = cipMatch[1].replace(/[.．]\s*--.*$/, '').trim();
+    const author = cipMatch[2]
+      .replace(/编著|主编|编$|著$/, '')
+      .replace(/[.．]\s*--.*$/, '')
+      .trim();
+    if (title && author) return { title, author };
+  }
+  const slashMatch = text.match(/^(.{2,}?)\s*\/\s*(.{2,}?)(?:\s*[.．]\s*--|$)/m);
+  if (slashMatch) {
+    return {
+      title: slashMatch[1].trim(),
+      author: slashMatch[2].replace(/编著|主编|编$|著$/, '').trim(),
+    };
   }
   return {};
 }
@@ -178,71 +197,6 @@ async function scaleImage(blob: Blob): Promise<Blob> {
   });
 }
 
-function otsuThreshold(gray: Uint8ClampedArray): number {
-  const hist = new Array<number>(256).fill(0);
-  for (let i = 0; i < gray.length; i++) hist[gray[i]]++;
-  const total = gray.length;
-  let sum = 0;
-  for (let t = 0; t < 256; t++) sum += t * hist[t];
-  let sumB = 0;
-  let wB = 0;
-  let maxVar = 0;
-  let threshold = 127;
-  for (let t = 0; t < 256; t++) {
-    wB += hist[t];
-    if (wB === 0) continue;
-    const wF = total - wB;
-    if (wF === 0) break;
-    sumB += t * hist[t];
-    const mB = sumB / wB;
-    const mF = (sum - sumB) / wF;
-    const between = wB * wF * (mB - mF) * (mB - mF);
-    if (between > maxVar) {
-      maxVar = between;
-      threshold = t;
-    }
-  }
-  return threshold;
-}
-
-async function preprocessImage(blob: Blob): Promise<Blob> {
-  const bitmap = await toImageBitmap(blob);
-  const w0 = bitmap.width;
-  const h0 = bitmap.height;
-  const scale = Math.min(1, MAX_DIM / Math.max(w0, h0));
-  const w = Math.max(1, Math.round(w0 * scale));
-  const h = Math.max(1, Math.round(h0 * scale));
-  const useOffscreen = typeof OffscreenCanvas !== 'undefined';
-  const canvas: OffscreenCanvas | HTMLCanvasElement = useOffscreen
-    ? new OffscreenCanvas(w, h)
-    : Object.assign(document.createElement('canvas'), { width: w, height: h });
-  const ctx = canvas.getContext('2d') as
-    | CanvasRenderingContext2D
-    | OffscreenCanvasRenderingContext2D
-    | null;
-  if (!ctx) return blob;
-  ctx.drawImage(bitmap as unknown as CanvasImageSource, 0, 0, w, h);
-  const imageData = ctx.getImageData(0, 0, w, h);
-  const data = imageData.data;
-  const gray = new Uint8ClampedArray(w * h);
-  for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-    gray[j] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-  }
-  const threshold = otsuThreshold(gray);
-  for (let j = 0, k = 0; j < gray.length; j++, k += 4) {
-    const v = gray[j] < threshold ? 0 : 255;
-    data[k] = data[k + 1] = data[k + 2] = v;
-    data[k + 3] = 255;
-  }
-  ctx.putImageData(imageData, 0, 0);
-  if (canvas instanceof OffscreenCanvas) {
-    return canvas.convertToBlob({ type: 'image/png' });
-  }
-  return new Promise<Blob>((resolve) => {
-    (canvas as HTMLCanvasElement).toBlob((b) => resolve(b ?? blob), 'image/png');
-  });
-}
-
 async function detectBlur(blob: Blob): Promise<number> {
   const bitmap = await toImageBitmap(blob);
   const w = bitmap.width;
@@ -277,7 +231,7 @@ async function detectBlur(blob: Blob): Promise<number> {
   return sumSq / count - mean * mean;
 }
 
-// ===== HEIC 转码（已有） =====
+// ===== HEIC 转码 =====
 
 const HEIC_TYPES = new Set(['image/heic', 'image/heif']);
 
@@ -313,32 +267,7 @@ async function normalizeImage(image: File | Blob): Promise<Blob> {
   }
 }
 
-// ===== 版权页书名/作者提取 =====
-
-function extractCipInfo(raw: string): { title?: string; author?: string } {
-  const text = raw.replace(/\s+/g, ' ').trim();
-  const cipMatch = text.match(
-    /(?:CIP[)）]\s*)?数据\s*\n?\s*(.+?)\s*\/\s*(.+?)(?:\s*[.．]\s*--|\s*编著|\s*编\s|$)/m,
-  );
-  if (cipMatch) {
-    const title = cipMatch[1].replace(/[.．]\s*--.*$/, '').trim();
-    const author = cipMatch[2]
-      .replace(/编著|主编|编$|著$/, '')
-      .replace(/[.．]\s*--.*$/, '')
-      .trim();
-    if (title && author) return { title, author };
-  }
-  const slashMatch = text.match(/^(.{2,}?)\s*\/\s*(.{2,}?)(?:\s*[.．]\s*--|$)/m);
-  if (slashMatch) {
-    return {
-      title: slashMatch[1].trim(),
-      author: slashMatch[2].replace(/编著|主编|编$|著$/, '').trim(),
-    };
-  }
-  return {};
-}
-
-// ===== 版权页 OCR（中英文全文，不做二值化） =====
+// ===== 主入口 =====
 
 export async function recognizeCopyrightPage(image: File | Blob): Promise<OCRResult> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -350,98 +279,35 @@ export async function recognizeCopyrightPage(image: File | Blob): Promise<OCRRes
     }
     const scaled = await scaleImage(normalized);
 
-    const worker = await getWorker();
-    await worker.setParameters({
-      tessedit_pageseg_mode: 3 as unknown as PSM,
-      tessedit_char_whitelist: '',
-      preserve_interword_spaces: '1',
-      user_defined_dpi: '300',
-    });
-
-    const recognizePromise = worker.recognize(scaled);
+    const ocr = await getOCR();
+    const predictPromise = ocr.predict(scaled);
     const timeoutPromise = new Promise<never>((_, reject) => {
       timer = setTimeout(
         () => reject(new Error('ocr-recognize-timeout')),
-        RECOGNIZE_TIMEOUT_MS * 2,
+        RECOGNIZE_TIMEOUT_MS,
       );
     });
 
     try {
-      const { data } = await Promise.race([recognizePromise, timeoutPromise]);
-      const identifiers = extractIdentifiers(data.text);
-      const cip = extractCipInfo(data.text);
-      return {
-        ...identifiers,
-        title: cip.title,
-        author: cip.author,
-        raw: data.text,
-        blur,
-      };
+      const results = await Promise.race([predictPromise, timeoutPromise]);
+      const first = results[0];
+      const text = first?.items.map((item) => item.text).join('\n') ?? '';
+      const identifiers = extractIdentifiers(text);
+      const cip = extractCipInfo(text);
+      if (!identifiers.isbn && !identifiers.issn && !cip.title && !cip.author) {
+        return { raw: text, blur };
+      }
+      return { ...identifiers, ...cip, raw: text, blur };
     } finally {
       if (timer) clearTimeout(timer);
     }
   } catch (e) {
-    console.warn(consoleMessages.ocrFailed, e);
-    void disposeWorker();
-    return { raw: '', error: 'failed' };
-  }
-}
-
-// ===== 主入口 =====
-
-export async function recognizeText(image: File | Blob): Promise<OCRResult> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const normalized = await normalizeImage(image);
-    const blur = await detectBlur(normalized);
-    if (blur < BLUR_THRESHOLD) {
-      return { raw: '', error: 'imageTooBlurry', blur };
+    if (e instanceof Error && e.message === 'ocr-recognize-timeout') {
+      console.warn('[ocr] 识别超时');
+    } else {
+      console.warn(consoleMessages.ocrFailed, e);
     }
-    const preprocessed = await preprocessImage(normalized);
-
-    const worker = await getWorker();
-    for (const psm of PSM_MODES) {
-      try {
-        await worker.setParameters({
-          tessedit_pageseg_mode: psm as unknown as PSM,
-          tessedit_char_whitelist: WHITELIST,
-          preserve_interword_spaces: '1',
-          user_defined_dpi: '300',
-        });
-      } catch (e) {
-        console.warn('[ocr] setParameters 失败：', e);
-      }
-      const recognizePromise = worker.recognize(preprocessed);
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error('ocr-recognize-timeout')),
-          RECOGNIZE_TIMEOUT_MS,
-        );
-      });
-      try {
-        const { data } = await Promise.race([recognizePromise, timeoutPromise]);
-        const extracted = extractIdentifiers(data.text);
-        if (extracted.isbn || extracted.issn) {
-          return { ...extracted, raw: data.text, psm, blur };
-        }
-      } catch (e) {
-        if (e instanceof Error && e.message === 'ocr-recognize-timeout') {
-          console.warn(`[ocr] PSM=${psm} 超时`);
-          void disposeWorker();
-          return { raw: '', error: 'failed', blur };
-        }
-        throw e;
-      } finally {
-        if (timer) {
-          clearTimeout(timer);
-          timer = undefined;
-        }
-      }
-    }
-    return { raw: '', error: 'noMatch', blur };
-  } catch (e) {
-    console.warn(consoleMessages.ocrFailed, e);
-    void disposeWorker();
+    void disposeOCR();
     return { raw: '', error: 'failed' };
   }
 }
@@ -457,8 +323,7 @@ export const __test = {
   expandToIsbn13,
   normalizeOcrDigits,
   extractIdentifiers,
-  PSM_MODES,
+  extractCipInfo,
   BLUR_THRESHOLD,
   MAX_DIM,
-  WHITELIST,
 };

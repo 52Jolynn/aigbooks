@@ -16,7 +16,6 @@ export interface RecognizeResult {
   source: RecognizeSource;
   error?: RecognizeError;
   raw?: string;
-  psm?: number;
   blur?: number;
 }
 

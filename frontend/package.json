@@ -10,11 +10,11 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@paddleocr/paddleocr-js": "^0.4.2",
     "axios": "^1.7.0",
     "barcode-detector": "^3.2.1",
     "naive-ui": "^2.40.0",
     "pinia": "^2.2.0",
-    "tesseract.js": "^5.1.0",
     "vue": "^3.5.0",
     "vue-router": "^4.4.0"
   },

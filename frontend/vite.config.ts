@@ -21,7 +21,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          tesseract: ['tesseract.js'],
+          paddleocr: ['@paddleocr/paddleocr-js'],
         },
       },
     },
