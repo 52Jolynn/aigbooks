@@ -35,6 +35,9 @@ async function getOCR(): Promise<OCRRunner> {
     ocrPromise = PaddleOCR.create({
       lang: 'ch',
       ocrVersion: 'PP-OCRv5',
+      ortOptions: {
+        wasmPaths: '/ort-wasm/',
+      },
       textDetectionModelName: 'PP-OCRv5_mobile_det',
       textDetectionModelAsset: {
         url: '/models/PP-OCRv5_mobile_det.tar',
