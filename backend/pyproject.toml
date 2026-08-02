@@ -47,6 +47,8 @@ select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+addopts = "-m 'not e2e'"
 markers = [
     "dialect(name): 仅在该方言下运行",
+    "e2e: 端到端测试（需运行中的后端；pytest -m e2e 启用，conftest 自动启 uvicorn）",
 ]
