@@ -27,12 +27,35 @@ function normalize(text: string): string {
   return text.replace(/[-\s]/g, '').toUpperCase();
 }
 
+function isValidIsbn13(s: string): boolean {
+  if (!/^\d{13}$/.test(s)) return false;
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    sum += parseInt(s[i], 10) * (i % 2 === 0 ? 1 : 3);
+  }
+  return ((10 - (sum % 10)) % 10) === parseInt(s[12], 10);
+}
+
+function isValidIssn(s: string): boolean {
+  if (!/^\d{7}[\dX]$/.test(s)) return false;
+  let sum = 0;
+  for (let i = 0; i < 7; i++) {
+    sum += parseInt(s[i], 10) * (8 - i);
+  }
+  const checkDigit = (11 - (sum % 11)) % 11;
+  const expected = checkDigit === 10 ? 'X' : String(checkDigit);
+  return s[7] === expected;
+}
+
 function classify(raw: string): { isbn?: string; issn?: string; format?: string } {
   const text = normalize(raw);
   if (ISBN13_REGEX.test(text) && EAN13_ISBN_PREFIX.includes(text.slice(0, 3))) {
+    // 加校验位：避免 ZXing 在脏图上误读出 13 位但校验位错的伪 ISBN
+    if (!isValidIsbn13(text)) return {};
     return { isbn: text, format: 'ean_13' };
   }
   if (ISSN_REGEX.test(text)) {
+    if (!isValidIssn(text)) return {};
     return { issn: text, format: 'issn' };
   }
   return {};

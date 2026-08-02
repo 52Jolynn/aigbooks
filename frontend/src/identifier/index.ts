@@ -1,9 +1,9 @@
 /**
- * 统一识别入口：先条形码 → 后 OCR → 兜底手动。
- * 不修改 ocr/ 与 barcode/ 的导出。
+ * 统一识别入口：条形码与 OCR 并行执行，合并结果。
+ * 条形码获取 ISBN/ISSN，OCR 从版权页提取书名/作者/书号。
  */
 import { recognizeBarcodes, type BarcodeResult } from '@/barcode';
-import { recognizeText, type OCRResult } from '@/ocr';
+import { recognizeCopyrightPage, type OCRResult } from '@/ocr';
 
 export type RecognizeSource = 'barcode' | 'ocr' | 'none';
 export type RecognizeError = 'imageTooBlurry' | 'noMatch' | 'failed';
@@ -23,33 +23,29 @@ export interface RecognizeResult {
 export async function recognizeIdentifier(
   image: File | Blob,
 ): Promise<RecognizeResult> {
-  const barcode: BarcodeResult = await recognizeBarcodes(image);
+  const [barcode, ocr] = await Promise.all([
+    recognizeBarcodes(image).catch(() => ({ raw: '' } as BarcodeResult)),
+    recognizeCopyrightPage(image).catch(() => ({ raw: '' } as OCRResult)),
+  ]);
+
+  const isbn = barcode.isbn || ocr.isbn;
+  const issn = barcode.issn || ocr.issn;
+
+  let source: RecognizeSource = 'none';
   if (barcode.isbn || barcode.issn) {
-    return {
-      isbn: barcode.isbn,
-      issn: barcode.issn,
-      source: 'barcode',
-      raw: barcode.raw,
-    };
+    source = 'barcode';
+  } else if (ocr.isbn || ocr.issn || ocr.title || ocr.author) {
+    source = 'ocr';
   }
-  const ocr: OCRResult = await recognizeText(image);
-  if (ocr.isbn || ocr.issn) {
-    return {
-      isbn: ocr.isbn,
-      issn: ocr.issn,
-      title: ocr.title,
-      author: ocr.author,
-      source: 'ocr',
-      error: ocr.error,
-      raw: ocr.raw,
-      psm: ocr.psm,
-      blur: ocr.blur,
-    };
-  }
+
   return {
-    source: 'none',
-    error: ocr.error ?? 'noMatch',
-    raw: ocr.raw,
+    isbn,
+    issn,
+    title: ocr.title,
+    author: ocr.author,
+    source,
+    error: ocr.error,
+    raw: ocr.raw || barcode.raw,
     blur: ocr.blur,
   };
 }

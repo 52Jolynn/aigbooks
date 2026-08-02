@@ -98,7 +98,16 @@ function expandToIsbn13(s: string): string | null {
 }
 
 function normalizeOcrDigits(s: string): string {
-  return s.replace(/O/g, '0').replace(/I/g, '1').replace(/l/g, '1');
+  // 视觉混淆字符 O/I/l → 0/1/1；连字符 / 空格 → 抹平；ISBN/ISSN 前缀 → 抹平
+  // 这样 "ISBN 978-3-16-148410-0" 才能匹配 \b97[89]\d{10}\b
+  // （"ISBN" 紧贴数字会让 \b 失效，必须先剥掉）
+  return s
+    .replace(/[-\s]/g, '')
+    .replace(/ISBN/gi, '')
+    .replace(/ISSN/gi, '')
+    .replace(/O/g, '0')
+    .replace(/I/g, '1')
+    .replace(/l/g, '1');
 }
 
 function extractIdentifiers(raw: string): {
@@ -141,6 +150,32 @@ async function toImageBitmap(blob: Blob): Promise<ImageBitmap> {
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+async function scaleImage(blob: Blob): Promise<Blob> {
+  const bitmap = await toImageBitmap(blob);
+  const w0 = bitmap.width;
+  const h0 = bitmap.height;
+  const scale = Math.min(1, MAX_DIM / Math.max(w0, h0));
+  if (scale >= 1) return blob;
+  const w = Math.max(1, Math.round(w0 * scale));
+  const h = Math.max(1, Math.round(h0 * scale));
+  const useOffscreen = typeof OffscreenCanvas !== 'undefined';
+  const canvas: OffscreenCanvas | HTMLCanvasElement = useOffscreen
+    ? new OffscreenCanvas(w, h)
+    : Object.assign(document.createElement('canvas'), { width: w, height: h });
+  const ctx = canvas.getContext('2d') as
+    | CanvasRenderingContext2D
+    | OffscreenCanvasRenderingContext2D
+    | null;
+  if (!ctx) return blob;
+  ctx.drawImage(bitmap as unknown as CanvasImageSource, 0, 0, w, h);
+  if (canvas instanceof OffscreenCanvas) {
+    return canvas.convertToBlob({ type: 'image/png' });
+  }
+  return new Promise<Blob>((resolve) => {
+    (canvas as HTMLCanvasElement).toBlob((b) => resolve(b ?? blob), 'image/png');
+  });
 }
 
 function otsuThreshold(gray: Uint8ClampedArray): number {
@@ -278,17 +313,91 @@ async function normalizeImage(image: File | Blob): Promise<Blob> {
   }
 }
 
+// ===== 版权页书名/作者提取 =====
+
+function extractCipInfo(raw: string): { title?: string; author?: string } {
+  const text = raw.replace(/\s+/g, ' ').trim();
+  const cipMatch = text.match(
+    /(?:CIP[)）]\s*)?数据\s*\n?\s*(.+?)\s*\/\s*(.+?)(?:\s*[.．]\s*--|\s*编著|\s*编\s|$)/m,
+  );
+  if (cipMatch) {
+    const title = cipMatch[1].replace(/[.．]\s*--.*$/, '').trim();
+    const author = cipMatch[2]
+      .replace(/编著|主编|编$|著$/, '')
+      .replace(/[.．]\s*--.*$/, '')
+      .trim();
+    if (title && author) return { title, author };
+  }
+  const slashMatch = text.match(/^(.{2,}?)\s*\/\s*(.{2,}?)(?:\s*[.．]\s*--|$)/m);
+  if (slashMatch) {
+    return {
+      title: slashMatch[1].trim(),
+      author: slashMatch[2].replace(/编著|主编|编$|著$/, '').trim(),
+    };
+  }
+  return {};
+}
+
+// ===== 版权页 OCR（中英文全文，不做二值化） =====
+
+export async function recognizeCopyrightPage(image: File | Blob): Promise<OCRResult> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const normalized = await normalizeImage(image);
+    const blur = await detectBlur(normalized);
+    if (blur < BLUR_THRESHOLD) {
+      return { raw: '', error: 'imageTooBlurry', blur };
+    }
+    const scaled = await scaleImage(normalized);
+
+    const worker = await getWorker();
+    await worker.setParameters({
+      tessedit_pageseg_mode: 3 as unknown as PSM,
+      tessedit_char_whitelist: '',
+      preserve_interword_spaces: '1',
+      user_defined_dpi: '300',
+    });
+
+    const recognizePromise = worker.recognize(scaled);
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error('ocr-recognize-timeout')),
+        RECOGNIZE_TIMEOUT_MS * 2,
+      );
+    });
+
+    try {
+      const { data } = await Promise.race([recognizePromise, timeoutPromise]);
+      const identifiers = extractIdentifiers(data.text);
+      const cip = extractCipInfo(data.text);
+      return {
+        ...identifiers,
+        title: cip.title,
+        author: cip.author,
+        raw: data.text,
+        blur,
+      };
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  } catch (e) {
+    console.warn(consoleMessages.ocrFailed, e);
+    void disposeWorker();
+    return { raw: '', error: 'failed' };
+  }
+}
+
 // ===== 主入口 =====
 
 export async function recognizeText(image: File | Blob): Promise<OCRResult> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const normalized = await normalizeImage(image);
-    const preprocessed = await preprocessImage(normalized);
-    const blur = await detectBlur(preprocessed);
+    const blur = await detectBlur(normalized);
     if (blur < BLUR_THRESHOLD) {
       return { raw: '', error: 'imageTooBlurry', blur };
     }
+    const preprocessed = await preprocessImage(normalized);
 
     const worker = await getWorker();
     for (const psm of PSM_MODES) {
@@ -336,3 +445,20 @@ export async function recognizeText(image: File | Blob): Promise<OCRResult> {
     return { raw: '', error: 'failed' };
   }
 }
+
+/**
+ * 暴露纯函数与关键常量给测试，避免外部绕过识别流程直接复制粘贴算法。
+ * 不计入公开 API；只在 __test 命名空间下导出。
+ */
+export const __test = {
+  isValidIsbn10,
+  isValidIsbn13,
+  isValidIssn,
+  expandToIsbn13,
+  normalizeOcrDigits,
+  extractIdentifiers,
+  PSM_MODES,
+  BLUR_THRESHOLD,
+  MAX_DIM,
+  WHITELIST,
+};
