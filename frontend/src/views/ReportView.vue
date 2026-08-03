@@ -132,6 +132,7 @@
         <FileUploader
           :files="evidenceFiles"
           :multiple="true"
+          :max-size="50 * 1024 * 1024"
           accept="image/*,video/mp4"
           :label="report.fieldEvidence"
           @update:files="onEvidenceFiles"
@@ -259,6 +260,7 @@ function currentFields() {
     identifier: identifier.value,
     title: title.value,
     author: author.value,
+    description: description.value,
   };
 }
 
@@ -267,6 +269,7 @@ function applyFields(fields: ReturnType<typeof currentFields>) {
   identifier.value = fields.identifier;
   title.value = fields.title;
   author.value = fields.author;
+  description.value = fields.description;
 }
 
 function resetRecognitionState() {

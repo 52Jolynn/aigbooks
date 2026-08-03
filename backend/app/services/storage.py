@@ -77,8 +77,11 @@ async def save_evidence(file: UploadFile) -> tuple[str, str, int]:
         )
 
     content = await file.read()
-    if len(content) > settings.max_upload_size:
-        raise HTTPException(status_code=413, detail={"code": 413, "msg": "证据文件过大"})
+    if len(content) > settings.max_evidence_size:
+        raise HTTPException(
+            status_code=413,
+            detail={"code": 413, "msg": "证据文件过大，单文件不超过 50MB"},
+        )
 
     ext = _MIME_EXT_MAP.get(mime, ".bin")
     now = datetime.now(timezone.utc)

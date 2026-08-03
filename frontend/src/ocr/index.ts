@@ -5,7 +5,6 @@
  */
 import { PaddleOCR } from '@paddleocr/paddleocr-js';
 import type { OcrRuntimeParamsInput, OcrResult } from '@paddleocr/paddleocr-js';
-import * as ort from 'onnxruntime-web';
 import { consoleMessages } from '@/i18n/zh';
 import type { IdentifierType } from '@/api/identifiers';
 
@@ -15,6 +14,7 @@ export interface OCRResult {
   identifierType?: IdentifierType;
   title?: string;
   author?: string;
+  summary?: string;
   raw: string;
   blur?: number;
   error?: 'imageTooBlurry' | 'noMatch' | 'failed';
@@ -36,7 +36,6 @@ async function getOCR(): Promise<OCRRunner> {
   if (!ocrPromise) {
     ocrPromise = (async () => {
       const t0 = performance.now();
-      ort.env.logLevel = 'error';
       const instance = (await PaddleOCR.create({
         lang: 'ch',
         ocrVersion: 'PP-OCRv5',
@@ -163,27 +162,69 @@ function extractIdentifiers(raw: string): {
   return {};
 }
 
-function extractCipInfo(raw: string): { title?: string; author?: string } {
-  const text = raw.replace(/\s+/g, ' ').trim();
-  const cipMatch = text.match(
-    /(?:CIP[)）]\s*)?数据\s*\n?\s*(.+?)\s*\/\s*(.+?)(?:\s*[.．]\s*--|\s*编著|\s*编\s|$)/m,
-  );
-  if (cipMatch) {
-    const title = cipMatch[1].replace(/[.．]\s*--.*$/, '').trim();
-    const author = cipMatch[2]
-      .replace(/编著|主编|编$|著$/, '')
-      .replace(/[.．]\s*--.*$/, '')
-      .trim();
-    if (title && author) return { title, author };
+interface BookInfo {
+  isbn?: string;
+  issn?: string;
+  identifierType?: IdentifierType;
+  title?: string;
+  author?: string;
+  summary?: string;
+}
+
+function cleanLabeledValue(line: string): string {
+  return line.replace(/^\s*(?:著\s*者|作\s*者|译\s*者)\s*[:：]?\s*/i, '').trim();
+}
+
+function extractBookInfo(raw: string): BookInfo {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return {};
+
+  const consumed = new Set<number>([0]);
+  const identifiers = extractIdentifiers(raw);
+  const identifierLines = lines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => /ISBN|ISSN|书\s*号/i.test(line));
+  for (const { index } of identifierLines) {
+    consumed.add(index);
+    if (index + 1 < lines.length && /ISBN|ISSN|书\s*号/i.test(lines[index])) {
+      const nextIdentifiers = extractIdentifiers(lines[index + 1]);
+      if (nextIdentifiers.isbn || nextIdentifiers.issn) consumed.add(index + 1);
+    }
   }
-  const slashMatch = text.match(/^(.{2,}?)\s*\/\s*(.{2,}?)(?:\s*[.．]\s*--|$)/m);
-  if (slashMatch) {
-    return {
-      title: slashMatch[1].trim(),
-      author: slashMatch[2].replace(/编著|主编|编$|著$/, '').trim(),
-    };
+  const identifierValue = identifiers.isbn || identifiers.issn;
+  if (identifierValue) {
+    const compactIdentifier = identifierValue.replace(/[-\s]/g, '');
+    lines.forEach((line, index) => {
+      if (normalizeOcrDigits(line).includes(compactIdentifier)) consumed.add(index);
+    });
   }
-  return {};
+
+  const labeledAuthor = lines.findIndex((line) => /^(?:著\s*者|作\s*者)\s*[:：]?/i.test(line));
+  const countryAuthor = lines.findIndex((line, index) => index > 0 && /^\[[^\]]{1,4}\]\s*\S+/.test(line));
+  const translator = lines.findIndex((line) => /^译\s*者\s*[:：]?/i.test(line));
+  const authorIndex = labeledAuthor >= 0 ? labeledAuthor : countryAuthor >= 0 ? countryAuthor : translator;
+  let author: string | undefined;
+  if (authorIndex >= 0) {
+    author = cleanLabeledValue(lines[authorIndex]);
+    consumed.add(authorIndex);
+  }
+
+  const summary = lines.filter((_, index) => !consumed.has(index)).join('\n');
+  return {
+    ...identifiers,
+    title: lines[0],
+    author,
+    summary: summary || undefined,
+  };
+}
+
+function formatIsbn13(isbn: string): string {
+  const digits = isbn.replace(/[-\s]/g, '');
+  if (!/^97[89]\d{10}$/.test(digits)) return isbn;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 4)}-${digits.slice(4, 8)}-${digits.slice(8, 12)}-${digits.slice(12)}`;
 }
 
 // ===== 图像预处理 =====
@@ -337,12 +378,11 @@ export async function recognizeCopyrightPage(image: File | Blob): Promise<OCRRes
         backend: first?.runtime.requestedBackend,
         rawText: text.slice(0, 200),
       });
-      const identifiers = extractIdentifiers(text);
-      const cip = extractCipInfo(text);
-      if (!identifiers.isbn && !identifiers.issn && !cip.title && !cip.author) {
+      const bookInfo = extractBookInfo(text);
+      if (!bookInfo.isbn && !bookInfo.issn && !bookInfo.title && !bookInfo.author) {
         return { raw: text, blur };
       }
-      return { ...identifiers, ...cip, raw: text, blur };
+      return { ...bookInfo, raw: text, blur };
     } finally {
       if (timer) clearTimeout(timer);
     }
@@ -368,7 +408,8 @@ export const __test = {
   expandToIsbn13,
   normalizeOcrDigits,
   extractIdentifiers,
-  extractCipInfo,
+  extractBookInfo,
+  formatIsbn13,
   BLUR_THRESHOLD,
   MAX_DIM,
 };

@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     log_to_console: bool = True
 
     max_upload_size: int = 20 * 1024 * 1024
+    max_evidence_size: int = 50 * 1024 * 1024
     allowed_mime_types: list[str] = Field(
         default_factory=lambda: ["image/jpeg", "image/png", "image/webp", "video/mp4"]
     )

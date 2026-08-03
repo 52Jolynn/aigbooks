@@ -128,7 +128,7 @@ sudo -u www-data pnpm build
 |---|---|
 | 502 Bad Gateway | `systemctl status aigbooks-api`；`journalctl -u aigbooks-api -n 50` |
 | 静态资源 404 | 检查 `/opt/aigbooks/frontend/dist/` 存在；`nginx -t` |
-| 上传 413 | nginx `client_max_body_size 25M`；FastAPI `AIGBOOKS_MAX_UPLOAD_SIZE=20971520` |
+| 上传 413 | nginx `client_max_body_size 512M`；封面 `AIGBOOKS_MAX_UPLOAD_SIZE=20971520`；证据单文件 `AIGBOOKS_MAX_EVIDENCE_SIZE=52428800` |
 | DB 连接错 | `AIGBOOKS_DATABASE_URL` 格式；`pg_isready -h localhost` |
 | OCR 不工作 | Tesseract.js WASM 由 CDN 加载（Fontsource 自托管字体不影响） |
 

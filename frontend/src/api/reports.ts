@@ -24,6 +24,7 @@ export const createReport = (input: CreateReportInput) => {
   input.evidences?.forEach((file) => form.append('evidences', file));
   return api.post('/reports', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 180000,
   });
 };
 

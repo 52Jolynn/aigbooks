@@ -89,6 +89,7 @@ def _get_test_settings(db_url: str | None = None) -> Settings:
         evidence_dir="./var/evidence_test",
         covers_dir="./var/covers_test",
         max_upload_size=20 * 1024 * 1024,
+        max_evidence_size=50 * 1024 * 1024,
         report_rate_limit=5,
         report_rate_window=3600,
         page_size=20,

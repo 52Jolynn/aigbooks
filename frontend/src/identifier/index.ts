@@ -11,6 +11,7 @@ export interface RecognizeResult {
   issn?: string;
   title?: string;
   author?: string;
+  summary?: string;
   source: RecognizeSource;
   error?: RecognizeError;
   raw?: string;
@@ -41,7 +42,7 @@ function hasBarcodeResult(result: BarcodeResult): boolean {
 }
 
 function hasOCRResult(result: OCRResult): boolean {
-  return Boolean(result.isbn || result.issn || result.title || result.author);
+  return Boolean(result.isbn || result.issn || result.title || result.author || result.summary);
 }
 
 export async function recognizeIdentifier(
@@ -81,6 +82,7 @@ export async function recognizeIdentifier(
         issn: ocr.issn,
         title: ocr.title,
         author: ocr.author,
+        summary: ocr.summary,
         source: matched ? 'ocr' : 'none',
         error: ocr.error,
         raw: ocr.raw,
@@ -103,8 +105,9 @@ export async function recognizeIdentifier(
     issn,
     title: ocr.title,
     author: ocr.author,
+    summary: ocr.summary,
     source: barcodeMatched ? 'barcode' : ocrMatched ? 'ocr' : 'none',
-    error: isbn || issn || ocr.title || ocr.author ? undefined : ocr.error || 'noMatch',
+    error: isbn || issn || ocr.title || ocr.author || ocr.summary ? undefined : ocr.error || 'noMatch',
     raw: ocr.raw || barcode.raw,
     blur: ocr.blur,
   };

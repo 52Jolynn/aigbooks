@@ -1,11 +1,13 @@
 import type { IdentifierType } from '@/api/identifiers';
 import type { RecognitionProgress } from '@/identifier';
+import { __test as ocrTest } from '@/ocr';
 
 export interface RecognitionFields {
   type: IdentifierType;
   identifier: string;
   title: string;
   author: string;
+  description: string;
 }
 
 export function applyRecognitionProgress(
@@ -17,7 +19,7 @@ export function applyRecognitionProgress(
 
   if (progress.step === 'barcode') {
     if (result.isbn) {
-      return { ...fields, type: 'isbn', identifier: result.isbn };
+      return { ...fields, type: 'isbn', identifier: ocrTest.formatIsbn13(result.isbn) };
     }
     if (result.issn) {
       return { ...fields, type: 'issn', identifier: result.issn };
@@ -35,5 +37,6 @@ export function applyRecognitionProgress(
   }
   if (result.title) next.title = result.title;
   if (result.author) next.author = result.author;
+  if (!next.description && result.summary) next.description = result.summary;
   return next;
 }
