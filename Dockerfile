@@ -1,15 +1,14 @@
-FROM node:22-bookworm-slim AS frontend-builder
+FROM python:3.12-slim-bookworm AS backend-dependencies
 
-WORKDIR /src/frontend
-RUN corepack enable
-COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
-COPY frontend/ ./
-RUN pnpm build
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
 
-FROM ghcr.io/astral-sh/uv:0.8.14 AS backend-dependencies
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir uv==0.9.21
 
-WORKDIR /src/backend
+WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
@@ -28,16 +27,19 @@ RUN apt-get update \
     && useradd --create-home --uid 10001 --shell /usr/sbin/nologin aigbooks
 
 WORKDIR /app/backend
-COPY --from=backend-dependencies /src/backend/.venv /app/backend/.venv
+COPY --from=backend-dependencies /app/backend/.venv /app/backend/.venv
 COPY backend/pyproject.toml backend/uv.lock ./
 COPY backend/alembic.ini ./
 COPY backend/alembic ./alembic
 COPY backend/app ./app
 COPY deploy/docker/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=frontend-builder /src/frontend/dist /usr/share/nginx/html
+COPY frontend-dist.tar.gz /tmp/frontend-dist.tar.gz
 COPY deploy/docker/entrypoint.sh /entrypoint.sh
 RUN sed -i 's/listen 80;/listen 8080;/' /etc/nginx/conf.d/default.conf \
     && sed -i 's/proxy_pass http:\/\/app:8000/proxy_pass http:\/\/127.0.0.1:8000/' /etc/nginx/conf.d/default.conf \
+    && tar -xzf /tmp/frontend-dist.tar.gz -C /usr/share/nginx/html --strip-components=1 \
+    && rm /tmp/frontend-dist.tar.gz \
+    && test -f /usr/share/nginx/html/index.html \
     && mkdir -p /app/var/covers /app/var/evidence /app/var/logs /var/log/nginx /var/lib/nginx /run \
     && touch /run/nginx.pid \
     && chown -R aigbooks:aigbooks /app /var/log/nginx /var/lib/nginx /run/nginx.pid \

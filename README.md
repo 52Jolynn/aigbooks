@@ -27,6 +27,7 @@
 | 前端 | Vue 3 · Vite · TypeScript · Naive UI · Pinia · PaddleOCR（浏览器端 OCR）· Vue Router |
 | 存储 | 本地磁盘（封面 + 证据） |
 | 部署 | Docker Compose（systemd + nginx 单镜像方案参见 `deploy/docker/README.md`） |
+| 构建 | 宿主机预构建前端 → `frontend-dist.tar.gz` → Dockerfile 单文件复制 + 解压 |
 | Python | `>= 3.10`（推荐 3.12） |
 | Node | `>= 22`（前端构建） |
 
@@ -51,7 +52,7 @@
 │   └── plans/          实施计划
 ├── scripts/            本地辅助脚本（如 API 列表）
 ├── docker-compose.yaml 一体化编排（PostgreSQL + 迁移 + 应用 + Nginx）
-├── Dockerfile          多阶段镜像（前端构建 → 后端运行时）
+├── Dockerfile          多阶段镜像（后端 uv 安装依赖 + 复制预打包前端 → Python 运行时）
 └── README.md
 ```
 
@@ -110,7 +111,9 @@ cd frontend && pnpm typecheck
 
 ### A. 一体化 Docker 镜像（推荐，单服务器部署）
 
-镜像为多阶段构建：先用 Node 22 构建前端，再用 `uv` 准备后端依赖，最后用 Python 3.12 slim 运行 nginx + uvicorn。
+镜像采用多阶段构建：宿主机先用 Node 22 + pnpm 构建前端并打包为 `frontend-dist.tar.gz`，再用 `uv` 准备后端依赖，最后在 Python 3.12 slim 镜像中解压前端产物并运行 nginx + uvicorn。脚本会自动完成前端构建 → 打包 → 镜像构建 → 清理打包文件全流程。
+
+宿主机需安装 **Node 22** 与 **pnpm 9**；如需在已具备 `frontend-dist.tar.gz` 的环境下跳过前端构建，可设置 `SKIP_FRONTEND_BUILD=1`；`KEEP_FRONTEND_BUNDLE=1` 可保留打包文件以便排错。
 
 1. **准备环境变量**：在仓库根目录创建 `.env`
 
@@ -128,6 +131,7 @@ cd frontend && pnpm typecheck
    # 或显式指定：
    # PLATFORM=linux/arm64  IMAGE_TAG=arm64 bash deploy/docker/build-image.sh
    # PLATFORM=linux/amd64  IMAGE_TAG=amd64 bash deploy/docker/build-image.sh
+   # SKIP_FRONTEND_BUILD=1 bash deploy/docker/build-image.sh   # 复用已生成的 frontend-dist.tar.gz
    ```
 
 3. **启动编排**

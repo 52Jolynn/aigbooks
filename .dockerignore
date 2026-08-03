@@ -15,6 +15,7 @@
 **/*.db
 **/.env
 
-frontend/dist
 backend/var
 .DS_Store
+
+!frontend-dist.tar.gz

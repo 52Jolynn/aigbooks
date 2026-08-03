@@ -44,3 +44,6 @@ backend/*.db
 backend/*.db-*
 backend/.pytest_cache/
 backend/.ruff_cache/
+
+# Docker build artifacts
+frontend-dist.tar.gz

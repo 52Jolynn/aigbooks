@@ -35,6 +35,8 @@ PLATFORM=linux/amd64 IMAGE_TAG=amd64 bash deploy/docker/build-image.sh
 
 Compose 默认直接构建对应主机架构的应用镜像和 Nginx 镜像。
 
+构建脚本会在宿主机执行 `pnpm install --frozen-lockfile` 与 `pnpm build`，然后将 `frontend/dist` 打包为 `frontend-dist.tar.gz` 供 Dockerfile 复制。宿主机需安装 **Node 22** 与 **pnpm 9**，否则请先安装后再执行脚本，或设置 `SKIP_FRONTEND_BUILD=1` 并自行准备好 `frontend-dist.tar.gz` 后再调用脚本。`KEEP_FRONTEND_BUNDLE=1` 可保留打包文件以便排错。
+
 ## 3. 启动
 
 ```bash
