@@ -42,6 +42,12 @@
         <ul v-if="identifier.reports.length" class="report-timeline">
           <li v-for="r in identifier.reports" :key="r.id" class="report-timeline__item">
             <header class="report-timeline__head">
+              <span class="report-timeline__isbn">
+                <span class="report-timeline__isbn-label">
+                  {{ IDENTIFIER_TYPE_LABEL[r.identifier.type] }}
+                </span>
+                <span class="report-timeline__isbn-value">{{ r.identifier.identifier }}</span>
+              </span>
               <span class="report-timeline__case">{{ formatCaseNumber(r.id) }}</span>
               <span>{{ card.filedOn }} {{ r.created_at.slice(0, 10) }}</span>
               <span class="quarantine-stamp quarantine-stamp--ok">
@@ -66,6 +72,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import {
   getIdentifierDetail,
+  IDENTIFIER_TYPE_LABEL,
   type IdentifierDetailOut,
   type IdentifierType,
   type ReportOut,

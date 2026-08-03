@@ -157,20 +157,17 @@
 
     <line x1="20" y1="246" x2="220" y2="246" stroke="#C4CCC7" stroke-width="0.5" />
     <g font-family="'JetBrains Mono', monospace" letter-spacing="0.6">
-      <text x="20" y="256" font-size="6" fill="#6E7973">TYPE 类型</text>
-      <text x="20" y="266" font-size="6.5" fill="#1F2A24">{{ typeValue }}</text>
+      <text x="20" y="260" font-size="6" fill="#6E7973">TYPE 类型</text>
+      <text x="20" y="272" font-size="6.5" fill="#1F2A24">{{ typeValue }}</text>
 
-      <text x="86" y="256" font-size="6" fill="#6E7973">IDENT 编号</text>
-      <text x="86" y="266" font-size="6.5" fill="#1F2A24">{{ identValue }}</text>
+      <text x="120" y="260" font-size="6" fill="#6E7973">IDENT 编号</text>
+      <text x="120" y="272" font-size="6.5" fill="#1F2A24">{{ identValue }}</text>
 
-      <text x="20" y="290" font-size="6" fill="#6E7973">TITLE 书名</text>
-      <text x="20" y="300" font-size="6.5" fill="#1F2A24">{{ titleValue }}</text>
+      <text x="20" y="292" font-size="6" fill="#6E7973">TITLE 书名</text>
+      <text x="20" y="304" font-size="6.5" fill="#1F2A24">{{ titleValue }}</text>
 
-      <text x="86" y="290" font-size="6" fill="#6E7973">AUTHOR 作者</text>
-      <text x="86" y="300" font-size="6.5" fill="#1F2A24">{{ authorValue }}</text>
-
-      <text x="152" y="290" font-size="6" fill="#6E7973">REPORTS 举报</text>
-      <text x="152" y="300" font-size="6.5" fill="#1F2A24">{{ reportsValue }}</text>
+      <text x="120" y="292" font-size="6" fill="#6E7973">AUTHOR 作者</text>
+      <text x="120" y="304" font-size="6.5" fill="#1F2A24">{{ authorValue }}</text>
     </g>
   </svg>
 </template>
@@ -186,7 +183,7 @@ const TYPE_LABEL: Record<IdentifierType, string> = {
   'issn-l': 'ISSN-L',
 };
 
-const MAX_FIELD = 12;
+const MAX_FIELD = 14;
 
 const props = defineProps<{
   ariaLabel?: string;
@@ -206,12 +203,9 @@ function truncate(value: string | undefined): string {
 const typeValue = computed(() =>
   props.type ? (TYPE_LABEL[props.type] ?? '—') : '—',
 );
-const identValue = computed(() => props.identifier || '—');
+const identValue = computed(() => truncate(props.identifier));
 const titleValue = computed(() => truncate(props.title));
 const authorValue = computed(() => truncate(props.author));
-const reportsValue = computed(() =>
-  props.reportCount == null ? '—' : `${props.reportCount} 次`,
-);
 </script>
 
 <style scoped>

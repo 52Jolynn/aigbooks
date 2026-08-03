@@ -181,6 +181,12 @@ export const card = {
   filedOn: '提交于',
   reportedCount: (n: number) => `已收到 × ${n} 次举报`,
   noCover: '无封面',
+  field: {
+    type: '类型',
+    identifier: '编号',
+    filedOn: '提交于',
+    reportedCount: '举报',
+  },
 } as const;
 
 export const utility = {

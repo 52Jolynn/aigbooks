@@ -414,6 +414,25 @@ main.main {
   overflow: hidden;
 }
 
+.sample-bag__cover-link {
+  display: block;
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.sample-bag__cover-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px -10px rgba(11, 93, 71, 0.28);
+}
+
+.sample-bag__cover-link:focus-visible {
+  outline: 2px solid var(--quarantine-ok);
+  outline-offset: 4px;
+  border-radius: 10px;
+}
+
 .sample-bag__cover-fallback {
   font-family: var(--font-cn-display);
   font-style: italic;
@@ -527,6 +546,12 @@ main.main {
 
 .sample-bag__meta dd { color: var(--ink); }
 
+.sample-bag__meta-id {
+  font-weight: 600;
+  color: var(--ink-deep);
+  word-break: break-all;
+}
+
 .sample-bag__excerpt {
   font-family: var(--font-cn);
   font-size: 14px;
@@ -541,7 +566,7 @@ main.main {
 
 .sample-bag__footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   margin-top: auto;
   padding-top: 12px;
@@ -1447,6 +1472,31 @@ main.main {
   font-size: 12px;
   color: var(--ink-faint);
   letter-spacing: 0.08em;
+  flex-wrap: wrap;
+}
+
+.report-timeline__isbn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-deep);
+  background: var(--quarantine-ok-soft);
+  padding: 2px 8px;
+  border-radius: var(--radius-stamp);
+  border: 1px solid var(--quarantine-ok);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.report-timeline__isbn-label {
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.report-timeline__isbn-value {
+  color: var(--ink);
+  word-break: break-all;
 }
 
 .report-timeline__case {
@@ -1458,11 +1508,31 @@ main.main {
 }
 
 .report-timeline__body {
+  position: relative;
   font-family: var(--font-cn);
   font-size: 15px;
-  line-height: 1.75;
+  line-height: 1.85;
   color: var(--ink);
-  margin-bottom: 12px;
+  margin: 4px 0 16px;
+  padding: 14px 18px 14px 22px;
+  background: var(--surface-tray);
+  border-left: 3px solid var(--quarantine-ok);
+  border-radius: 0 6px 6px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.report-timeline__body::before {
+  content: "摘要";
+  position: absolute;
+  top: -10px;
+  left: 16px;
+  padding: 0 8px;
+  background: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--quarantine-ok);
+  text-transform: uppercase;
 }
 
 .report-timeline__footer {
