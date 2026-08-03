@@ -2,7 +2,7 @@
 
 ---
 创建时间: 2026-07-29 17:20
-最后更新: 2026-08-02 16:05（通用编号标识符扩展：ISBN + ISSN）
+最后更新: 2026-08-03（OCR 三模式与两阶段顺序识别）
 状态: 已完成（实施中）
 ---
 
@@ -27,7 +27,7 @@
 1. 点击导航或浮动按钮跳转 `/report` 独立路由（中央 720px 表单页）
 2. 必填：**编号类型（ISBN/ISSN）+ 编号值、题名、作者、举报描述**
 3. 可选：**封面图**（默认占位图）、**证据**（图片/视频，可多份；文字证据即描述字段）
-4. 表单支持 **Tesseract.js 客户端 OCR**：扫 ISBN 条形码 / ISSN 条码 / 书脊照片 → 自动回填三项
+4. 表单提供三种本地识别模式：上传图片、拍照识别、实时条码扫描。上传和拍照按“条码识别 → PaddleOCR 文字识别”顺序执行；每一步得到结果后立即回填表单，条码失败不阻断 OCR，编号冲突时条码优先。实时条码扫描只回填 ISBN/ISSN，不追加 OCR
 5. 提交即生效，无审核；触发限流时返回 429
 
 ### 1.3 标识符体系
@@ -61,7 +61,7 @@ AIGBooks 采用通用的 `(type, identifier)` 二元组作为聚合根，支持�
 
 ```
 [浏览器]
-   │  Vue 3 SPA + Tesseract.js（OCR 客户端运行）
+   │  Vue 3 SPA + BarcodeDetector/ZXing + PaddleOCR.js（客户端识别）
    ▼
 [Nginx 80/443] ── 反代 ──▶ [FastAPI :8000 (uvicorn)]
                                 │
@@ -76,7 +76,7 @@ AIGBooks 采用通用的 `(type, identifier)` 二元组作为聚合根，支持�
 | 前端框架 | Vue 3 + Vite + TypeScript | 组合式 API + 类型友好 |
 | 前端路由/状态 | Vue Router + Pinia | 官方推荐 |
 | 前端 UI | Naive UI | 轻量、TS 原生 |
-| 前端 OCR | Tesseract.js | 客户端运行，零成本 |
+| 前端识别 | BarcodeDetector/ZXing + PaddleOCR.js | 本地条码与中文文字识别，模型和 WASM 自托管 |
 | 后端框架 | FastAPI | 异步高性能、自动 OpenAPI |
 | ORM | SQLAlchemy 2.0 (async) + asyncpg | 现代异步栈 |
 | 迁移 | Alembic | 数据库版本管理 |
@@ -230,7 +230,8 @@ async def rate_limit_report(db, ip, fp):
 | 编号重复提交 | `INSERT ... ON CONFLICT (type, identifier) DO UPDATE` → 自动聚合复用 identifiers |
 | 编号格式错误 | 后端按 type 选择正则校验，不通过返回 422 |
 | 不支持的 type（如 `doi`） | 路由层校验失败返回 422 |
-| OCR 失败 / 识别错误 | 前端捕获回退手填，不阻塞提交 |
+| 条码未命中 / 识别失败 | 前端记录第一阶段状态并继续 PaddleOCR，不阻塞手工提交 |
+| OCR 失败 / 识别错误 | 保留已回填的条码结果，提示手工补充题名和作者，不阻塞提交 |
 | 文件超限（单文件 20MB） | 后端校验返回 413 |
 | 文件类型非法（仅 jpg/png/webp/mp4） | 后端 MIME 校验返回 415 |
 | 限流触发 | 返回 429，UI 弹"请稍后再试" |
@@ -327,7 +328,9 @@ aigbooks/
 │   │   ├── views/
 │   │   │   └── IdentifierDetailView.vue  # 聚合根详情（原 BookDetailView）
 │   │   ├── components/
-│   │   ├── ocr/                # Tesseract.js 封装（含 ISBN+ISSN 双正则）
+│   │   ├── barcode/            # BarcodeDetector + ZXing WASM 条码识别
+│   │   ├── identifier/         # 条码 → OCR 两阶段顺序编排与结果合并
+│   │   ├── ocr/                # PaddleOCR.js 封装（ISBN/ISSN、题名、作者）
 │   │   └── api/
 │   │       └── identifiers.ts  # 聚合根 API（原 books.ts）
 │   └── package.json
@@ -351,7 +354,7 @@ aigbooks/
 | 包管理 | uv | pip / poetry | 用户指定；uv 更快、lock 更稳 |
 | 后端框架 | FastAPI | Django / Flask | 异步性能 + 类型友好 + 自动 OpenAPI |
 | 全文检索 | PG FTS（simple 字典） | Whoosh / Meilisearch | 与 PG 同源，零外部依赖；后续可升级 zhparser |
-| OCR | Tesseract.js（客户端） | 服务端 OCR / 云端 OCR | 零成本、隐私好、无服务端压力 |
+| 客户端识别 | BarcodeDetector/ZXing 顺序衔接 PaddleOCR.js | 服务端 OCR / 云端 OCR | 条码快速获取编号，OCR 补充编号与书目信息；本地运行保护隐私并降低服务端压力 |
 | 文件存储 | 本地磁盘 | OSS / S3 | MVP 最简，后续可平滑迁移 |
 | 投票防刷 | IP + 浏览器指纹 | 完全不防 | 用户明确选择 B（指纹） |
 | 举报限流 | 每 (IP+指纹) 每小时 5 条 | 无限制 | 防止恶意刷库 |

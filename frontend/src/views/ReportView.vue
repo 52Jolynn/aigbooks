@@ -43,15 +43,35 @@
           v-else
           @update:file="onCameraFile"
         />
+        <div
+          v-if="ocrMode !== 'barcode' && (ocrFiles[0] || ocrLoading)"
+          class="recognition-steps"
+          role="status"
+          aria-live="polite"
+        >
+          <div
+            v-for="step in recognitionStepOrder"
+            :key="step"
+            class="recognition-step"
+            :class="`is-${recognitionSteps[step].status}`"
+            :aria-current="recognitionSteps[step].status === 'running' ? 'step' : undefined"
+          >
+            <span class="recognition-step__index">{{ step === 'barcode' ? '01' : '02' }}</span>
+            <span class="recognition-step__body">
+              <strong>{{ stepLabel(step) }}</strong>
+              <small>{{ stepStatusLabel(step) }}</small>
+            </span>
+          </div>
+        </div>
         <button
           v-if="ocrMode !== 'barcode'"
           type="button"
           class="report-form__ocr-btn"
           :disabled="!ocrFiles[0] || ocrLoading"
           :aria-busy="ocrLoading"
-          @click="runOCR"
+          @click="runRecognition"
         >
-          {{ ocrLoading ? report.scanRunning : report.scanAction }}
+          {{ ocrLoading ? report.scanRunning : report.scanAgain }}
         </button>
         <div v-if="recognitionInfo" class="report-form__ocr-info" role="status">
           <span class="report-form__ocr-info-label">{{ report.recognitionSource }}：</span>
@@ -139,8 +159,13 @@ import {
   IDENTIFIER_TYPE_PLACEHOLDER,
   type IdentifierType,
 } from '@/api/identifiers';
-import { recognizeIdentifier, type RecognizeResult } from '@/identifier';
-import { recognizeBarcodes } from '@/barcode';
+import {
+  recognizeIdentifier,
+  type RecognitionProgress,
+  type RecognitionStep,
+  type RecognitionStepStatus,
+} from '@/identifier';
+import { applyRecognitionProgress } from '@/identifier/form';
 import { useFingerprintStore } from '@/stores/fingerprint';
 import { report } from '@/i18n/zh';
 import SectionHeader from '@/components/SectionHeader.vue';
@@ -159,6 +184,12 @@ const title = ref('');
 const author = ref('');
 const description = ref('');
 type OcrMode = 'upload' | 'barcode' | 'camera';
+type StepViewStatus = 'pending' | RecognitionStepStatus;
+interface StepViewState {
+  status: StepViewStatus;
+  error?: string;
+}
+const recognitionStepOrder: RecognitionStep[] = ['barcode', 'ocr'];
 const ocrMode = ref<OcrMode>('upload');
 const ocrFiles = ref<File[]>([]);
 const coverFile = ref<File[]>([]);
@@ -167,6 +198,11 @@ const ocrLoading = ref(false);
 const submitting = ref(false);
 const formError = ref<string | null>(null);
 const recognitionInfo = ref<{ source: string; error?: string } | null>(null);
+const recognitionSteps = reactive<Record<RecognitionStep, StepViewState>>({
+  barcode: { status: 'pending' },
+  ocr: { status: 'pending' },
+});
+let recognitionRunId = 0;
 
 function sourceLabel(s: string): string {
   if (s === 'barcode') return report.sourceBarcode;
@@ -188,6 +224,19 @@ function modeTip(m: OcrMode): string {
   if (m === 'barcode') return report.tipBarcode;
   return report.tipCamera;
 }
+function stepLabel(step: RecognitionStep): string {
+  return step === 'barcode' ? report.recognitionStepBarcode : report.recognitionStepOcr;
+}
+function stepStatusLabel(step: RecognitionStep): string {
+  const state = recognitionSteps[step];
+  if (state.status === 'pending') return report.recognitionPending;
+  if (state.status === 'running') return report.recognitionRunning;
+  if (state.status === 'matched') return report.recognitionMatched;
+  if (state.status === 'failed') {
+    return step === 'barcode' ? report.recognitionFailedContinue : report.recognitionFailed;
+  }
+  return step === 'barcode' ? report.recognitionNoMatchContinue : report.recognitionNoMatch;
+}
 
 const errors = reactive<Record<string, string>>({
   identifier: '',
@@ -204,6 +253,30 @@ function typePlaceholder(t: IdentifierType): string {
   return IDENTIFIER_TYPE_PLACEHOLDER[t];
 }
 
+function currentFields() {
+  return {
+    type: type.value,
+    identifier: identifier.value,
+    title: title.value,
+    author: author.value,
+  };
+}
+
+function applyFields(fields: ReturnType<typeof currentFields>) {
+  type.value = fields.type;
+  identifier.value = fields.identifier;
+  title.value = fields.title;
+  author.value = fields.author;
+}
+
+function resetRecognitionState() {
+  recognitionRunId += 1;
+  recognitionSteps.barcode = { status: 'pending' };
+  recognitionSteps.ocr = { status: 'pending' };
+  recognitionInfo.value = null;
+  ocrLoading.value = false;
+}
+
 function setType(t: IdentifierType) {
   if (type.value === t) return;
   type.value = t;
@@ -216,12 +289,13 @@ function setOcrMode(m: OcrMode) {
   if (ocrMode.value === m) return;
   ocrMode.value = m;
   ocrFiles.value = [];
-  recognitionInfo.value = null;
+  resetRecognitionState();
 }
 
 function onOCRFiles(files: File[]) {
   ocrFiles.value = files;
-  recognitionInfo.value = null;
+  resetRecognitionState();
+  if (files[0]) void runRecognition();
 }
 
 function onIdentifierInput() {
@@ -229,7 +303,8 @@ function onIdentifierInput() {
 }
 function onCameraFile(file: File | null) {
   ocrFiles.value = file ? [file] : [];
-  if (file) void runOCR();
+  resetRecognitionState();
+  if (file) void runRecognition();
 }
 function onBarcodeIdentified(payload: { isbn?: string; issn?: string; type: 'isbn' | 'issn' }) {
   if (payload.isbn) {
@@ -248,38 +323,34 @@ function onEvidenceFiles(files: File[]) {
   evidenceFiles.value = files;
 }
 
-async function runOCR() {
-  if (!ocrFiles.value[0]) return;
+function handleProgress(runId: number, progress: RecognitionProgress) {
+  if (runId !== recognitionRunId) return;
+  recognitionSteps[progress.step] = {
+    status: progress.status,
+    error: progress.error,
+  };
+  applyFields(applyRecognitionProgress(currentFields(), progress));
+}
+
+async function runRecognition() {
+  const image = ocrFiles.value[0];
+  if (!image || ocrLoading.value) return;
+  const runId = ++recognitionRunId;
+  recognitionSteps.barcode = { status: 'pending' };
+  recognitionSteps.ocr = { status: 'pending' };
   ocrLoading.value = true;
   recognitionInfo.value = null;
   try {
-    let result: RecognizeResult;
-    if (ocrMode.value === 'barcode') {
-      const barcode = await recognizeBarcodes(ocrFiles.value[0]);
-      result = {
-        isbn: barcode.isbn,
-        issn: barcode.issn,
-        source: barcode.isbn || barcode.issn ? 'barcode' : 'none',
-        raw: barcode.raw,
-      };
-    } else {
-      result = await recognizeIdentifier(ocrFiles.value[0]);
-    }
-    if (result.isbn) {
-      type.value = 'isbn';
-      identifier.value = result.isbn;
-    } else if (result.issn) {
-      type.value = 'issn';
-      identifier.value = result.issn;
-    }
-    if (result.title) title.value = result.title;
-    if (result.author) author.value = result.author;
+    const result = await recognizeIdentifier(image, {
+      onProgress: (progress) => handleProgress(runId, progress),
+    });
+    if (runId !== recognitionRunId) return;
     recognitionInfo.value = {
       source: result.source,
       error: result.error,
     };
   } finally {
-    ocrLoading.value = false;
+    if (runId === recognitionRunId) ocrLoading.value = false;
   }
 }
 
@@ -342,7 +413,40 @@ async function onSubmit() {
   cursor: pointer;
 }
 .report-form__ocr-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
+.recognition-steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.recognition-step {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 1px solid var(--surface-rule);
+  border-radius: 8px;
+  background: var(--surface-tray);
+  color: var(--ink-soft);
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+.recognition-step.is-running {
+  border-color: var(--quarantine-ok);
+  background: rgba(33, 89, 68, 0.08);
+  color: var(--ink-deep);
+}
+.recognition-step.is-matched { border-color: var(--quarantine-ok); }
+.recognition-step.is-failed,
+.recognition-step.is-noMatch { border-color: var(--quarantine-warn); }
+.recognition-step__index {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+.recognition-step__body { display: grid; gap: 4px; }
+.recognition-step__body strong { font-family: var(--font-cn); font-size: 13px; }
+.recognition-step__body small { font-family: var(--font-cn); font-size: 11px; color: var(--ink-soft); }
 .report-form__ocr-info {
   margin-top: 10px;
   font-family: var(--font-cn);
@@ -361,7 +465,6 @@ async function onSubmit() {
   color: var(--quarantine-warn);
   margin-left: 4px;
 }
-
 .report-form__type {
   display: flex;
   flex-wrap: wrap;
@@ -405,5 +508,8 @@ async function onSubmit() {
   background: var(--quarantine-ok);
   color: #fff;
   border-color: var(--quarantine-ok);
+}
+@media (max-width: 600px) {
+  .recognition-steps { grid-template-columns: 1fr; }
 }
 </style>
