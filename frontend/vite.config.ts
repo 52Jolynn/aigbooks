@@ -9,6 +9,10 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  optimizeDeps: {
+    exclude: ['onnxruntime-web'],
+  },
+  assetsInclude: ['**/*.wasm'],
   server: {
     port: 3000,
     headers: {

@@ -5,6 +5,7 @@
  */
 import { PaddleOCR } from '@paddleocr/paddleocr-js';
 import type { OcrRuntimeParamsInput, OcrResult } from '@paddleocr/paddleocr-js';
+import * as ort from 'onnxruntime-web';
 import { consoleMessages } from '@/i18n/zh';
 import type { IdentifierType } from '@/api/identifiers';
 
@@ -22,6 +23,7 @@ export interface OCRResult {
 interface OCRRunner {
   predict(input: unknown, params?: OcrRuntimeParamsInput): Promise<OcrResult[]>;
   dispose(): Promise<void>;
+  getInitializationSummary?(): unknown;
 }
 
 const RECOGNIZE_TIMEOUT_MS = 60_000;
@@ -32,27 +34,44 @@ let ocrPromise: Promise<OCRRunner> | null = null;
 
 async function getOCR(): Promise<OCRRunner> {
   if (!ocrPromise) {
-    ocrPromise = PaddleOCR.create({
-      lang: 'ch',
-      ocrVersion: 'PP-OCRv5',
-      worker: false,
-      ortOptions: {
-        backend: 'wasm',
-        wasmPaths: '/ort-wasm/',
-        numThreads: self.crossOriginIsolated
-          ? Math.min(4, Math.max(1, (navigator.hardwareConcurrency || 2) - 1))
-          : 1,
-        simd: true,
-      },
-      textDetectionModelName: 'PP-OCRv5_mobile_det',
-      textDetectionModelAsset: {
-        url: '/models/PP-OCRv5_mobile_det.tar',
-      },
-      textRecognitionModelName: 'PP-OCRv5_mobile_rec',
-      textRecognitionModelAsset: {
-        url: '/models/PP-OCRv5_mobile_rec.tar',
-      },
-    }) as Promise<OCRRunner>;
+    ocrPromise = (async () => {
+      const t0 = performance.now();
+      ort.env.logLevel = 'error';
+      const instance = (await PaddleOCR.create({
+        lang: 'ch',
+        ocrVersion: 'PP-OCRv5',
+        worker: false,
+        ortOptions: {
+          backend: 'wasm',
+          wasmPaths: import.meta.env.DEV
+            ? '/node_modules/onnxruntime-web/dist/'
+            : '/ort-wasm/',
+          numThreads: self.crossOriginIsolated
+            ? Math.min(4, Math.max(1, (navigator.hardwareConcurrency || 2) - 1))
+            : 1,
+          simd: true,
+        },
+        textDetectionModelName: 'PP-OCRv5_mobile_det',
+        textDetectionModelAsset: {
+          url: '/models/PP-OCRv5_mobile_det.tar',
+        },
+        textRecognitionModelName: 'PP-OCRv5_mobile_rec',
+        textRecognitionModelAsset: {
+          url: '/models/PP-OCRv5_mobile_rec.tar',
+        },
+      })) as PaddleOCR & OCRRunner;
+      const summary = instance.getInitializationSummary?.();
+      console.log('[ocr] 初始化完成', {
+        总耗时ms: (performance.now() - t0).toFixed(1),
+        backend: summary?.backend,
+        detProvider: summary?.detProvider,
+        recProvider: summary?.recProvider,
+        webgpuAvailable: summary?.webgpuAvailable,
+        资源数: summary?.assets?.length,
+        initialize摘要耗时ms: summary?.elapsedMs?.toFixed(1),
+      });
+      return instance;
+    })();
   }
   return ocrPromise;
 }
@@ -308,6 +327,16 @@ export async function recognizeCopyrightPage(image: File | Blob): Promise<OCRRes
       const results = await Promise.race([predictPromise, timeoutPromise]);
       const first = results[0];
       const text = first?.items.map((item) => item.text).join('\n') ?? '';
+      console.log('[ocr] predict 完成', {
+        itemsCount: first?.items.length ?? 0,
+        detectedBoxes: first?.metrics.detectedBoxes ?? 0,
+        recognizedCount: first?.metrics.recognizedCount ?? 0,
+        detMs: first?.metrics.detMs?.toFixed(1) ?? '-',
+        recMs: first?.metrics.recMs?.toFixed(1) ?? '-',
+        totalMs: first?.metrics.totalMs?.toFixed(1) ?? '-',
+        backend: first?.runtime.requestedBackend,
+        rawText: text.slice(0, 200),
+      });
       const identifiers = extractIdentifiers(text);
       const cip = extractCipInfo(text);
       if (!identifiers.isbn && !identifiers.issn && !cip.title && !cip.author) {
