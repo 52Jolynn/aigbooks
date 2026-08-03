@@ -42,52 +42,16 @@
       stroke-dasharray="2 3"
     />
 
-    <g
-      font-family="'JetBrains Mono', 'SF Mono', Consolas, Menlo, monospace"
-      fill="#4A5650"
-    >
+    <g class="dc-mono" fill="#4A5650">
       <text x="18" y="26" font-size="6.5" letter-spacing="1.6">
         AIGBOOKS · QUARANTINE LEDGER
       </text>
-      <text x="222" y="26" text-anchor="end" font-size="6.5" letter-spacing="1.4">
-        UNIT 03 / SHIFT B
-      </text>
     </g>
 
-    <g transform="translate(178 16)">
-      <rect width="46" height="14" rx="2" fill="#F5E1D2" stroke="#A84213" stroke-width="0.6" />
-      <rect
-        x="2"
-        y="2"
-        width="42"
-        height="10"
-        rx="1"
-        fill="none"
-        stroke="#A84213"
-        stroke-width="0.4"
-        stroke-dasharray="1.6 1.4"
-        opacity="0.6"
-      />
-      <text
-        x="23"
-        y="9.5"
-        text-anchor="middle"
-        font-family="'JetBrains Mono', monospace"
-        font-size="7"
-        fill="#A84213"
-        letter-spacing="0.4"
-      >
-        待检 · …
-      </text>
-    </g>
-
-    <g
-      font-family="'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', serif"
-      fill="#0B5D47"
-    >
+    <g class="dc-cn-display" fill="#0B5D47">
       <text x="20" y="78" font-size="34" font-weight="700" letter-spacing="2">默认封面</text>
     </g>
-    <g font-family="'JetBrains Mono', monospace" fill="#4A5650">
+    <g class="dc-mono" fill="#4A5650">
       <text x="20" y="94" font-size="8.5" letter-spacing="0.6" fill="#1F2A24">
         DEFAULT COVER
       </text>
@@ -97,12 +61,7 @@
     </g>
 
     <line x1="20" y1="123" x2="220" y2="123" stroke="#C4CCC7" stroke-width="0.5" />
-    <g
-      font-family="'JetBrains Mono', monospace"
-      font-size="6"
-      fill="#6E7973"
-      letter-spacing="1.2"
-    >
+    <g class="dc-mono" font-size="6" fill="#6E7973" letter-spacing="1.2">
       <text x="20" y="132">SPECIMEN · 样本</text>
       <text x="220" y="132" text-anchor="end">REC · 归档中</text>
     </g>
@@ -112,22 +71,12 @@
       <circle r="40" fill="none" stroke="#0E6B52" stroke-width="0.4" opacity="0.5" />
       <circle r="36" fill="none" stroke="#0E6B52" stroke-width="0.4" />
 
-      <text
-        font-family="'JetBrains Mono', monospace"
-        font-size="6.2"
-        fill="#0E6B52"
-        letter-spacing="2.6"
-      >
+      <text class="dc-mono" font-size="6.2" fill="#0E6B52" letter-spacing="2.6">
         <textPath href="#stamp-top-arc" startOffset="50%" text-anchor="middle">
           AIG · QUARANTINE · INSP
         </textPath>
       </text>
-      <text
-        font-family="'JetBrains Mono', monospace"
-        font-size="5.6"
-        fill="#0E6B52"
-        letter-spacing="3"
-      >
+      <text class="dc-mono" font-size="5.6" fill="#0E6B52" letter-spacing="3">
         <textPath href="#stamp-bot-arc" startOffset="50%" text-anchor="middle">
           EST · MMXXVI · UNIT 03
         </textPath>
@@ -144,9 +93,9 @@
       </g>
 
       <text
+        class="dc-mono"
         y="26"
         text-anchor="middle"
-        font-family="'JetBrains Mono', monospace"
         font-size="6.5"
         fill="#0B5D47"
         letter-spacing="0.6"
@@ -156,7 +105,7 @@
     </g>
 
     <line x1="20" y1="246" x2="220" y2="246" stroke="#C4CCC7" stroke-width="0.5" />
-    <g font-family="'JetBrains Mono', monospace" letter-spacing="0.6">
+    <g class="dc-mono" letter-spacing="0.6">
       <text x="20" y="260" font-size="6" fill="#6E7973">TYPE 类型</text>
       <text x="20" y="272" font-size="6.5" fill="#1F2A24">{{ typeValue }}</text>
 
@@ -213,5 +162,14 @@ const authorValue = computed(() => truncate(props.author));
   display: block;
   width: 100%;
   height: 100%;
+}
+.default-cover .dc-mono {
+  font-family: var(--font-mono);
+}
+.default-cover .dc-cn-display {
+  font-family: var(--font-cn-display);
+}
+.default-cover text {
+  text-rendering: geometricPrecision;
 }
 </style>
