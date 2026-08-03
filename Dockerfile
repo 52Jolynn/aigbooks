@@ -23,7 +23,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     AIGBOOKS_LOG_DIR=/app/var/logs
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y libmagic1 \
+    && apt-get install --no-install-recommends -y libmagic1 nginx tini ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 10001 --shell /usr/sbin/nologin aigbooks
 
@@ -33,9 +33,16 @@ COPY backend/pyproject.toml backend/uv.lock ./
 COPY backend/alembic.ini ./
 COPY backend/alembic ./alembic
 COPY backend/app ./app
-RUN mkdir -p /app/var/covers /app/var/evidence /app/var/logs \
-    && chown -R aigbooks:aigbooks /app
+COPY deploy/docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=frontend-builder /src/frontend/dist /usr/share/nginx/html
+COPY deploy/docker/entrypoint.sh /entrypoint.sh
+RUN sed -i 's/listen 80;/listen 8080;/' /etc/nginx/conf.d/default.conf \
+    && sed -i 's/proxy_pass http:\/\/app:8000/proxy_pass http:\/\/127.0.0.1:8000/' /etc/nginx/conf.d/default.conf \
+    && mkdir -p /app/var/covers /app/var/evidence /app/var/logs /var/log/nginx /var/lib/nginx /run \
+    && touch /run/nginx.pid \
+    && chown -R aigbooks:aigbooks /app /var/log/nginx /var/lib/nginx /run/nginx.pid \
+    && chmod +x /entrypoint.sh
 
-USER aigbooks
-EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+EXPOSE 8080
+ENTRYPOINT ["tini", "--", "/entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000", "--workers", "2"]

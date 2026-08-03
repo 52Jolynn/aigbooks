@@ -18,19 +18,19 @@ Compose 内部使用 `db` 作为 PostgreSQL 主机名，不要填写 `localhost`
 标准 `docker build` 按当前主机架构构建，不使用 Buildx：
 
 ```bash
-bash scripts/build-image.sh
+bash deploy/docker/build-image.sh
 ```
 
 在 ARM 主机上构建：
 
 ```bash
-PLATFORM=linux/arm64 IMAGE_TAG=arm64 bash scripts/build-image.sh
+PLATFORM=linux/arm64 IMAGE_TAG=arm64 bash deploy/docker/build-image.sh
 ```
 
 在 amd64 主机上构建：
 
 ```bash
-PLATFORM=linux/amd64 IMAGE_TAG=amd64 bash scripts/build-image.sh
+PLATFORM=linux/amd64 IMAGE_TAG=amd64 bash deploy/docker/build-image.sh
 ```
 
 Compose 默认直接构建对应主机架构的应用镜像和 Nginx 镜像。
@@ -38,7 +38,7 @@ Compose 默认直接构建对应主机架构的应用镜像和 Nginx 镜像。
 ## 3. 启动
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.yaml up -d --build
 ```
 
 启动顺序为 PostgreSQL 健康检查、Alembic 迁移、FastAPI 应用、Nginx。访问 `http://localhost:8080`。
@@ -46,20 +46,20 @@ docker compose up -d --build
 查看状态和日志：
 
 ```bash
-docker compose ps
-docker compose logs -f app nginx
+docker compose -f docker-compose.yaml ps
+docker compose -f docker-compose.yaml logs -f app
 ```
 
 停止服务：
 
 ```bash
-docker compose down
+docker compose -f docker-compose.yaml down
 ```
 
 删除服务及数据卷：
 
 ```bash
-docker compose down -v
+docker compose -f docker-compose.yaml down -v
 ```
 
 ## 4. 验证
@@ -82,4 +82,4 @@ Compose 使用 `postgres-data` 保存 PostgreSQL 数据，使用 `app-data` 保�
 
 ## 6. 使用外部 PostgreSQL
 
-如需连接外部 PostgreSQL，可复制 `compose.yaml` 为覆盖文件，移除 `db` 和 `migrate` 的数据库服务依赖，并将 `AIGBOOKS_DATABASE_URL` 改为外部地址。应用镜像仍由 `app` 服务运行，Nginx 入口不变。
+如需连接外部 PostgreSQL，可复制 `docker-compose.yaml` 为覆盖文件，移除 `db` 和 `migrate` 的数据库服务依赖，并将 `AIGBOOKS_DATABASE_URL` 改为外部地址。应用镜像仍由 `app` 服务运行，Nginx 入口不变。
