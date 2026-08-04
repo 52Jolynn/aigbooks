@@ -15,7 +15,7 @@ Compose 内部使用 `db` 作为 PostgreSQL 主机名，不要填写 `localhost`
 
 ## 2. 构建镜像
 
-标准 `docker build` 按当前主机架构构建，不使用 Buildx：
+标准 `docker build` 按当前主机架构构建，不使用 Buildx。Compose 不会再次构建，**必须** 先调用构建脚本生成 `aigbooks:<tag>` 镜像：
 
 ```bash
 bash deploy/docker/build-image.sh
@@ -36,6 +36,12 @@ PLATFORM=linux/amd64 IMAGE_TAG=amd64 bash deploy/docker/build-image.sh
 Compose 默认直接构建对应主机架构的应用镜像和 Nginx 镜像。
 
 构建脚本会在宿主机执行 `pnpm install --frozen-lockfile` 与 `pnpm build`，然后将 `frontend/dist` 打包为 `frontend-dist.tar.gz` 供 Dockerfile 复制。宿主机需安装 **Node 22** 与 **pnpm 9**，否则请先安装后再执行脚本，或设置 `SKIP_FRONTEND_BUILD=1` 并自行准备好 `frontend-dist.tar.gz` 后再调用脚本。`KEEP_FRONTEND_BUNDLE=1` 可保留打包文件以便排错。
+
+Compose 通过 `AIGBOOKS_IMAGE` 选择镜像，默认 `aigbooks:latest`，可覆盖为 `aigbooks:arm64`、`aigbooks:amd64` 等自定义标签：
+
+```bash
+AIGBOOKS_IMAGE=aigbooks:arm64 docker compose -f docker-compose.yaml up -d
+```
 
 ## 3. 启动
 

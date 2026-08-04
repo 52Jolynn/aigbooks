@@ -1,5 +1,7 @@
 name: aigbooks
 
+x-aigbooks-image: &aigbooks-image ${AIGBOOKS_IMAGE:-aigbooks:latest}
+
 services:
   db:
     image: postgres:15.8-bookworm
@@ -17,23 +19,20 @@ services:
     restart: unless-stopped
 
   migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: *aigbooks-image
     environment:
       AIGBOOKS_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-aigbooks}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-aigbooks}
       AIGBOOKS_LOG_TO_CONSOLE: "true"
     depends_on:
       db:
         condition: service_healthy
-    entrypoint: ["tini", "--", "alembic", "upgrade", "head"]
+    entrypoint: ["tini", "--", "alembic", "-c", "alembic.ini", "upgrade", "head"]
     command: []
+    working_dir: /app/backend
     restart: "no"
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: *aigbooks-image
     environment:
       AIGBOOKS_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-aigbooks}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-aigbooks}
       AIGBOOKS_EVIDENCE_DIR: /app/var/evidence

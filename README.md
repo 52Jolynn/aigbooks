@@ -124,7 +124,7 @@ cd frontend && pnpm typecheck
    APP_PORT=8080
    ```
 
-2. **构建镜像**（与本机 CPU 架构保持一致即可）
+2. **构建镜像**（与本机 CPU 架构保持一致即可；Compose 不会再次构建，需先生成 `aigbooks:<tag>`）
 
    ```bash
    bash deploy/docker/build-image.sh
@@ -137,7 +137,9 @@ cd frontend && pnpm typecheck
 3. **启动编排**
 
    ```bash
-   docker compose -f docker-compose.yaml up -d --build
+   docker compose -f docker-compose.yaml up -d
+   # 自定义镜像标签：
+   # AIGBOOKS_IMAGE=aigbooks:arm64 docker compose -f docker-compose.yaml up -d
    ```
 
    启动顺序：`db`（PostgreSQL 健康检查） → `migrate`（Alembic 迁移） → `app`（FastAPI + Nginx，监听 `8080`）。
