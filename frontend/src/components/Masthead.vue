@@ -25,6 +25,7 @@
     <p class="masthead__sub">{{ masthead.tagline }}</p>
     <nav class="masthead__nav" :aria-label="nav.primary">
       <RouterLink to="/" :class="{ 'is-active': route.name === 'home' }">{{ nav.latest }}</RouterLink>
+      <RouterLink to="/about" :class="{ 'is-active': route.name === 'about' }">{{ nav.about }}</RouterLink>
       <RouterLink to="/search" :class="{ 'is-active': route.name === 'search' }">{{ nav.search }}</RouterLink>
       <RouterLink to="/report" :class="{ 'is-active': route.name === 'report' }">{{ nav.submit }}</RouterLink>
       <a href="/api/feed/reports.rss" target="_blank" rel="noopener noreferrer">{{ nav.rss }}</a>
